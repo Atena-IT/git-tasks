@@ -1,0 +1,111 @@
+import { Command } from 'commander';
+import getBackend from '../backends/index.js';
+import { storyTemplate } from '../utils/templates.js';
+import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
+
+export function makeStoryCommand() {
+  const story = new Command('story').description('Manage user stories');
+
+  story
+    .command('create <title>')
+    .description('Create a new user story')
+    .option('-s, --sprint <sprint-number>', 'Parent sprint number')
+    .option('-e, --epic <epic-number>', 'Parent epic number')
+    .option('-d, --description <text>', 'Story description')
+    .option('-p, --points <n>', 'Story points', '1')
+    .option('-a, --assignee <user>', 'Assignee username')
+    .option('--priority <level>', 'Priority: low, medium, high', 'medium')
+    .action(async (title, opts) => {
+      try {
+        const backend = getBackend();
+        const body = storyTemplate({
+          description: opts.description,
+          sprintNumber: opts.sprint || '',
+          epicNumber: opts.epic || '',
+          points: opts.points,
+          assignee: opts.assignee || '',
+          priority: opts.priority,
+        });
+        const sprintRef = opts.sprint ? `#${opts.sprint}` : '';
+        const prefix = sprintRef ? `us(${sprintRef})` : 'us';
+        const issue = await backend.createIssue({
+          title: `${prefix}: ${title}`,
+          body,
+          labels: ['user-story'],
+          assignees: opts.assignee ? [opts.assignee] : [],
+        });
+        printSuccess(`Created user story #${issue.number}: ${issue.url}`);
+      } catch (err) {
+        printError(err.message);
+      }
+    });
+
+  story
+    .command('list')
+    .description('List user stories')
+    .option('--sprint <sprint-number>', 'Filter by sprint number')
+    .option('--epic <epic-number>', 'Filter by epic number')
+    .option('--assignee <user>', 'Filter by assignee')
+    .option('--state <state>', 'Issue state: open, closed, all', 'open')
+    .option('--short', 'Show minimal output')
+    .action(async (opts) => {
+      try {
+        const backend = getBackend();
+        let issues = await backend.listIssues({ labels: ['user-story'], state: opts.state });
+        if (opts.sprint) {
+          const ref = `#${opts.sprint}`;
+          issues = issues.filter(i => i.title.includes(`(${ref})`) || i.title.includes(`(${opts.sprint})`));
+        }
+        if (opts.assignee) {
+          issues = issues.filter(i =>
+            i.assignees?.some(a => (a.login || a) === opts.assignee)
+          );
+        }
+        console.log(formatIssueList(issues, { short: opts.short }));
+      } catch (err) {
+        printError(err.message);
+      }
+    });
+
+  story
+    .command('show <number>')
+    .description('Show user story details')
+    .option('--comments', 'Include comments')
+    .action(async (number, opts) => {
+      try {
+        const backend = getBackend();
+        const issue = await backend.viewIssue(number, { comments: opts.comments });
+        console.log(formatIssueDetail(issue, { comments: opts.comments }));
+      } catch (err) {
+        printError(err.message);
+      }
+    });
+
+  story
+    .command('update <number>')
+    .description('Update a user story')
+    .option('--title <text>', 'New title (raw, without prefix)')
+    .option('--sprint <sprint-number>', 'Re-assign to sprint')
+    .option('--points <n>', 'Story points')
+    .option('--status <state>', 'open or closed')
+    .option('--priority <level>', 'Priority: low, medium, high')
+    .option('-a, --assignee <user>', 'Add assignee')
+    .action(async (number, opts) => {
+      try {
+        const backend = getBackend();
+        const editOpts = {};
+        if (opts.title) {
+          const sprintPart = opts.sprint ? `(#${opts.sprint})` : '';
+          editOpts.title = `us${sprintPart}: ${opts.title}`;
+        }
+        if (opts.status) editOpts.state = opts.status;
+        if (opts.assignee) editOpts.addAssignees = [opts.assignee];
+        const issue = await backend.editIssue(number, editOpts);
+        printSuccess(`Updated user story #${issue.number}`);
+      } catch (err) {
+        printError(err.message);
+      }
+    });
+
+  return story;
+}

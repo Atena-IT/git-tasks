@@ -1,0 +1,101 @@
+import { Command } from 'commander';
+import getBackend from '../backends/index.js';
+import { sprintTemplate } from '../utils/templates.js';
+import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
+
+export function makeSprintCommand() {
+  const sprint = new Command('sprint').description('Manage sprints');
+
+  sprint
+    .command('create <title>')
+    .description('Create a new sprint')
+    .option('-e, --epic <epic-number>', 'Parent epic number')
+    .option('-d, --description <text>', 'Sprint description')
+    .option('-p, --points <n>', 'Story points', '0')
+    .option('--start <date>', 'Start date')
+    .option('--end <date>', 'End date')
+    .option('-a, --assignee <user>', 'Assignee username')
+    .action(async (title, opts) => {
+      try {
+        const backend = getBackend();
+        const epicRef = opts.epic ? `#${opts.epic}` : '';
+        const body = sprintTemplate({
+          description: opts.description,
+          epicNumber: opts.epic || '',
+          points: opts.points,
+          start: opts.start || '',
+          end: opts.end || '',
+          owner: opts.assignee || '',
+        });
+        const prefix = opts.epic ? `sprint(#${opts.epic})` : 'sprint';
+        const issue = await backend.createIssue({
+          title: `${prefix}: ${title}`,
+          body,
+          labels: ['sprint'],
+          assignees: opts.assignee ? [opts.assignee] : [],
+        });
+        printSuccess(`Created sprint #${issue.number}: ${issue.url}`);
+      } catch (err) {
+        printError(err.message);
+      }
+    });
+
+  sprint
+    .command('list')
+    .description('List sprints')
+    .option('--epic <epic-number>', 'Filter by epic number')
+    .option('--state <state>', 'Issue state: open, closed, all', 'open')
+    .option('--short', 'Show minimal output')
+    .action(async (opts) => {
+      try {
+        const backend = getBackend();
+        let issues = await backend.listIssues({ labels: ['sprint'], state: opts.state });
+        if (opts.epic) {
+          const ref = `#${opts.epic}`;
+          issues = issues.filter(i => i.title.includes(`(${ref})`) || i.title.includes(`(${opts.epic})`));
+        }
+        console.log(formatIssueList(issues, { short: opts.short }));
+      } catch (err) {
+        printError(err.message);
+      }
+    });
+
+  sprint
+    .command('show <number>')
+    .description('Show sprint details')
+    .option('--comments', 'Include comments')
+    .action(async (number, opts) => {
+      try {
+        const backend = getBackend();
+        const issue = await backend.viewIssue(number, { comments: opts.comments });
+        console.log(formatIssueDetail(issue, { comments: opts.comments }));
+      } catch (err) {
+        printError(err.message);
+      }
+    });
+
+  sprint
+    .command('update <number>')
+    .description('Update a sprint')
+    .option('--title <text>', 'New title (raw, without prefix)')
+    .option('--epic <epic-number>', 'Re-assign to epic')
+    .option('--points <n>', 'Story points')
+    .option('--status <state>', 'open or closed')
+    .action(async (number, opts) => {
+      try {
+        const backend = getBackend();
+        const editOpts = {};
+        if (opts.title) {
+          const epicPart = opts.epic ? `(#${opts.epic})` : '';
+          editOpts.title = `sprint${epicPart}: ${opts.title}`;
+        }
+        if (opts.status) editOpts.state = opts.status;
+        const issue = await backend.editIssue(number, editOpts);
+        printSuccess(`Updated sprint #${issue.number}`);
+      } catch (err) {
+        printError(err.message);
+      }
+    });
+
+  return sprint;
+}

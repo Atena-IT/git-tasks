@@ -1,0 +1,27 @@
+{
+  "name": "git-planner",
+  "version": "1.0.0",
+  "description": "Git for AI project managers",
+  "type": "module",
+  "bin": {
+    "git-planner": "./bin/git-planner.js"
+  },
+  "scripts": {
+    "test": "node --test test/cli.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Atena-IT/git-planner.git"
+  },
+  "keywords": ["git", "project-management", "cli", "ai", "github", "epics", "sprints"],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Atena-IT/git-planner/issues"
+  },
+  "homepage": "https://github.com/Atena-IT/git-planner#readme",
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3"
+  }
+}
