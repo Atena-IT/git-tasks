@@ -45,8 +45,8 @@ function ensureLabel(name, color, description) {
 }
 
 const LABEL_CONFIG = {
-  epic:       { color: '7B68EE', description: 'Epic issue' },
-  sprint:     { color: '4169E1', description: 'Sprint issue' },
+  'epic':       { color: '7B68EE', description: 'Epic issue' },
+  'sprint':     { color: '4169E1', description: 'Sprint issue' },
   'user-story': { color: '3CB371', description: 'User story issue' },
 };
 
