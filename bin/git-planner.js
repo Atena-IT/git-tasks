@@ -1,0 +1,27 @@
+#!/usr/bin/env node
+
+import { Command } from 'commander';
+import { createRequire } from 'module';
+import { makeEpicCommand } from '../src/commands/epic.js';
+import { makeSprintCommand } from '../src/commands/sprint.js';
+import { makeStoryCommand } from '../src/commands/story.js';
+import { makeOverviewCommand } from '../src/commands/overview.js';
+import { makeWikiCommand } from '../src/commands/wiki.js';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
+
+const program = new Command();
+
+program
+  .name('git-planner')
+  .description('AI-native project management via GitHub issues (epics, sprints, user stories)')
+  .version(pkg.version);
+
+program.addCommand(makeEpicCommand());
+program.addCommand(makeSprintCommand());
+program.addCommand(makeStoryCommand());
+program.addCommand(makeOverviewCommand());
+program.addCommand(makeWikiCommand());
+
+program.parse(process.argv);
