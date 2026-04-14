@@ -12,12 +12,17 @@
 ## Install the CLI
 
 ```bash
-npm install -g github:Atena-IT/git-tasks
-# or run it directly from the repository
-npx github:Atena-IT/git-tasks -- --help
+npm install -g geet-tasks
+npx geet-tasks --help
 ```
 
-If you publish the package to npm, the command name is `geet-tasks`.
+Until the npm package is published, install the current GitHub source with:
+
+```bash
+npm install -g github:Atena-IT/git-tasks
+```
+
+The package and skill are branded as `geet-tasks`, while the GitHub repository URL remains `Atena-IT/git-tasks`.
 
 ## Install the Agent Skill
 
@@ -52,7 +57,7 @@ cp .codex/skills/geet-tasks.md .gemini/skills/geet-tasks.md
 cp .codex/skills/geet-tasks.md .clinerules/geet-tasks.md
 ```
 
-The repository skill source lives at `/home/runner/work/git-tasks/git-tasks/skills/geet-tasks/SKILL.md`.
+The canonical skill source in this repository is `skills/geet-tasks/SKILL.md`.
 
 ## Issue Title Convention
 
