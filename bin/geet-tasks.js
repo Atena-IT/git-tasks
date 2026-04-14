@@ -14,8 +14,8 @@ const pkg = require('../package.json');
 const program = new Command();
 
 program
-  .name('git-planner')
-  .description('AI-native project management via GitHub issues (epics, sprints, user stories)')
+  .name('geet-tasks')
+  .description('AI-native GitHub issue planning via epics, sprints, and user stories')
   .version(pkg.version);
 
 program.addCommand(makeEpicCommand());

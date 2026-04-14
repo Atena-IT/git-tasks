@@ -1,27 +1,39 @@
 {
-  "name": "git-planner",
+  "name": "geet-tasks",
   "version": "1.0.0",
-  "description": "Git for AI project managers",
+  "description": "AI-native GitHub issue planning via GitHub issues",
   "type": "module",
   "bin": {
-    "git-planner": "./bin/git-planner.js"
+    "geet-tasks": "./bin/geet-tasks.js"
   },
   "scripts": {
-    "test": "node --test test/cli.test.js"
+    "test": "node --test test/cli.test.js",
+    "test:coverage": "node --test --experimental-test-coverage test/cli.test.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Atena-IT/git-planner.git"
+    "url": "git+https://github.com/Atena-IT/git-tasks.git"
   },
-  "keywords": ["git", "project-management", "cli", "ai", "github", "epics", "sprints"],
+  "keywords": [
+    "git",
+    "project-management",
+    "cli",
+    "ai",
+    "github",
+    "epics",
+    "sprints"
+  ],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Atena-IT/git-planner/issues"
+    "url": "https://github.com/Atena-IT/git-tasks/issues"
   },
-  "homepage": "https://github.com/Atena-IT/git-planner#readme",
+  "homepage": "https://github.com/Atena-IT/git-tasks#readme",
   "dependencies": {
     "chalk": "^5.6.2",
     "commander": "^14.0.3"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }
