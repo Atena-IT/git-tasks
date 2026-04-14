@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import getBackend from '../backends/index.js';
 import { epicTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
-import { parseIssueTitle } from '../utils/format.js';
 
 export function makeEpicCommand() {
   const epic = new Command('epic').description('Manage epics');

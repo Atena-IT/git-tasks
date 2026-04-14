@@ -82,12 +82,9 @@ export function listIssues({ labels = [], state = 'open', limit = 100 } = {}) {
 
 export function viewIssue(number, { comments = false } = {}) {
   const fields = 'number,title,state,body,labels,assignees,createdAt,updatedAt,url';
-  const args = ['issue', 'view', String(number), '--json', fields];
-  if (comments) args.splice(args.indexOf('--json'), 0, '--comments');
-  // gh issue view --comments returns comments in the JSON when --json includes 'comments'
   const fieldsWithComments = comments ? fields + ',comments' : fields;
-  const argsFixed = ['issue', 'view', String(number), '--json', fieldsWithComments];
-  return runGhJSON(argsFixed);
+  const args = ['issue', 'view', String(number), '--json', fieldsWithComments];
+  return runGhJSON(args);
 }
 
 export function editIssue(number, { title, body, addLabels = [], removeLabels = [], addAssignees = [], state } = {}) {
