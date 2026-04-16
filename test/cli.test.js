@@ -114,6 +114,18 @@ test('skill install copies canonical skill into requested targets', async () => 
   }
 });
 
+test('skill install fails for unknown targets', async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-skill-invalid-'));
+  try {
+    const result = run(['skill', 'install', '--target', 'unknown'], { cwd });
+
+    assert.equal(result.status, 1);
+    assert.ok(result.stderr.includes('Unknown skill target'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
 test('package metadata targets git-tasks on Node.js 24+', async () => {
   const pkg = JSON.parse(fs.readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.name, 'git-tasks');

@@ -52,7 +52,6 @@ export function normalizeLifecycleStatus(status = 'open') {
 export function parseReviewerList(...values) {
   return [...new Set(values
     .flat()
-    .filter(Boolean)
     .flatMap((value) => String(value).split(','))
     .map((value) => value.trim())
     .filter(Boolean))];

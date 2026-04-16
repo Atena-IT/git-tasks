@@ -106,7 +106,7 @@ export async function ensureStoryPullRequest(story, { backend = getBackend(), ba
   });
 }
 
-function getReviewers(reviewers = []) {
+function mergeReviewerSources(reviewers = []) {
   const envReviewers = process.env.GIT_TASKS_REVIEWERS || '';
   return parseReviewerList(reviewers, envReviewers);
 }
@@ -129,7 +129,7 @@ export async function applyStoryLifecycle(number, { status, reviewers = [], base
         pullRequest = await backend.markPullRequestReady(pullRequest.number);
       }
 
-      const reviewerList = getReviewers(reviewers);
+      const reviewerList = mergeReviewerSources(reviewers);
       if (reviewerList.length) {
         pullRequest = await backend.requestPullRequestReview(pullRequest.number, { reviewers: reviewerList });
       }
