@@ -94,7 +94,7 @@ export async function ensureStoryPullRequest(story, { backend = getBackend(), ba
 
   const branch = head || backend.getCurrentBranch();
   if (!branch) {
-    throw new Error('Unable to determine the current branch for pull request creation.');
+    throw new Error('Unable to determine the current branch for pull request creation. Please pass --head or run the command from a named git branch.');
   }
 
   return backend.createPullRequest({

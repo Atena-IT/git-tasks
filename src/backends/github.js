@@ -88,7 +88,7 @@ export function getCurrentBranch() {
   const result = spawnSync('git', ['branch', '--show-current'], { encoding: 'utf8' });
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(result.stderr?.trim() || `git exited with status ${result.status}`);
+    throw new Error('Unable to determine the current git branch.');
   }
   return result.stdout?.trim() || '';
 }

@@ -5,6 +5,7 @@ import os from 'node:os';
 import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { rm } from 'node:fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, '..', 'bin', 'git-tasks.js');
@@ -100,13 +101,17 @@ test('story update --help shows lifecycle and reviewer options', () => {
   assert.ok(result.stdout.includes('--reviewer') || result.stdout.includes('-r'));
 });
 
-test('skill install copies canonical skill into requested targets', () => {
+test('skill install copies canonical skill into requested targets', async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-skill-'));
-  const result = run(['skill', 'install', '--target', 'claude', '--target', 'copilot'], { cwd });
+  try {
+    const result = run(['skill', 'install', '--target', 'claude', '--target', 'copilot'], { cwd });
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.ok(fs.existsSync(join(cwd, '.claude', 'commands', 'git-tasks.md')));
-  assert.ok(fs.existsSync(join(cwd, '.github', 'skills', 'git-tasks', 'SKILL.md')));
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(fs.existsSync(join(cwd, '.claude', 'commands', 'git-tasks.md')));
+    assert.ok(fs.existsSync(join(cwd, '.github', 'skills', 'git-tasks', 'SKILL.md')));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
 });
 
 test('package metadata targets git-tasks on Node.js 24+', async () => {
