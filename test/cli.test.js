@@ -23,6 +23,7 @@ test('shows help with --help', () => {
   assert.equal(result.status, 0, `Expected exit 0, got ${result.status}\n${result.stderr}`);
   assert.ok(result.stdout.includes('git-tasks'), 'Expected program name in help');
   assert.ok(result.stdout.includes('epic'), 'Expected epic command in help');
+  assert.ok(result.stdout.includes('skill'), 'Expected skill command in help');
   assert.ok(result.stdout.includes('sprint'), 'Expected sprint command in help');
   assert.ok(result.stdout.includes('story'), 'Expected story command in help');
   assert.ok(result.stdout.includes('overview'), 'Expected overview command in help');
@@ -90,6 +91,22 @@ test('story create --help shows --sprint and --epic options', () => {
   assert.ok(result.stdout.includes('--sprint') || result.stdout.includes('-s'));
   assert.ok(result.stdout.includes('--epic') || result.stdout.includes('-e'));
   assert.ok(result.stdout.includes('--priority'));
+});
+
+test('story update --help shows lifecycle and reviewer options', () => {
+  const result = run(['story', 'update', '--help']);
+  assert.equal(result.status, 0);
+  assert.ok(result.stdout.includes('ready-for-review'));
+  assert.ok(result.stdout.includes('--reviewer') || result.stdout.includes('-r'));
+});
+
+test('skill install copies canonical skill into requested targets', () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-skill-'));
+  const result = run(['skill', 'install', '--target', 'claude', '--target', 'copilot'], { cwd });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(fs.existsSync(join(cwd, '.claude', 'commands', 'git-tasks.md')));
+  assert.ok(fs.existsSync(join(cwd, '.github', 'skills', 'git-tasks', 'SKILL.md')));
 });
 
 test('package metadata targets git-tasks on Node.js 24+', async () => {
@@ -190,6 +207,7 @@ test('format helpers and templates render expected project data', async () => {
   assert.ok(epicTemplate({ description: 'Ship auth', points: 13 }).includes('Ship auth'));
   assert.ok(sprintTemplate({ epicNumber: 1, points: 5 }).includes('#1'));
   assert.ok(storyTemplate({ sprintNumber: 2, epicNumber: 1, priority: 'high' }).includes('Priority:** high'));
+  assert.ok(storyTemplate({ sprintNumber: 2 }).includes('Linked PR'));
 
   const out = [];
   const originalLog = console.log;
@@ -203,4 +221,79 @@ test('format helpers and templates render expected project data', async () => {
   assert.equal(out.length, 2);
   assert.ok(out[0].includes('info'));
   assert.ok(out[1].includes('done'));
+});
+
+test('metadata helpers normalize lifecycle status and reviewer lists', async () => {
+  const {
+    getMetadataField,
+    normalizeLifecycleStatus,
+    parseReviewerList,
+    setMetadataField,
+  } = await import('../src/utils/metadata.js');
+
+  const body = setMetadataField('## Metadata\n- **Status:** open\n', 'Linked PR', 'https://example.com/pull/12');
+  assert.equal(getMetadataField(body, 'Linked PR'), 'https://example.com/pull/12');
+  assert.equal(normalizeLifecycleStatus('running'), 'in-progress');
+  assert.equal(normalizeLifecycleStatus('ready'), 'ready-for-review');
+  assert.deepEqual(parseReviewerList(['octocat,hubot', 'octocat']), ['octocat', 'hubot']);
+});
+
+test('buildLifecycleEdit updates labels and state consistently', async () => {
+  const { buildLifecycleEdit } = await import('../src/automation/lifecycle.js');
+  const issue = {
+    body: '## Metadata\n- **Status:** open\n',
+    labels: [{ name: 'user-story' }, { name: 'status:open' }],
+  };
+
+  const reviewEdit = buildLifecycleEdit(issue, 'ready-for-review');
+  assert.equal(reviewEdit.state, 'open');
+  assert.deepEqual(reviewEdit.addLabels, ['status:ready-for-review']);
+  assert.deepEqual(reviewEdit.removeLabels, ['status:open']);
+  assert.ok(reviewEdit.body.includes('ready-for-review'));
+
+  const closedEdit = buildLifecycleEdit(issue, 'closed');
+  assert.equal(closedEdit.state, 'closed');
+  assert.deepEqual(closedEdit.addLabels, ['status:done']);
+});
+
+test('cascadeCloseParentsFromIssue closes sprint and epic when all children are done', async () => {
+  const { cascadeCloseParentsFromIssue } = await import('../src/automation/lifecycle.js');
+
+  const issues = new Map([
+    [1, { number: 1, title: 'epic: Platform', state: 'OPEN', body: '## Metadata\n- **Status:** open\n', labels: [{ name: 'epic' }, { name: 'status:open' }] }],
+    [2, { number: 2, title: 'sprint(#1): Sprint 1', state: 'OPEN', body: '## Metadata\n- **Status:** open\n', labels: [{ name: 'sprint' }, { name: 'status:open' }] }],
+    [3, { number: 3, title: 'us(#2): Story A', state: 'CLOSED', body: '## Metadata\n- **Status:** closed\n', labels: [{ name: 'user-story' }, { name: 'status:done' }] }],
+    [4, { number: 4, title: 'us(#2): Story B', state: 'CLOSED', body: '## Metadata\n- **Status:** closed\n', labels: [{ name: 'user-story' }, { name: 'status:done' }] }],
+  ]);
+
+  const backend = {
+    async viewIssue(number) {
+      return structuredClone(issues.get(Number(number)));
+    },
+    async listIssues({ labels }) {
+      const wanted = new Set(labels);
+      return [...issues.values()]
+        .filter((issue) => issue.labels.some((label) => wanted.has(label.name || label)))
+        .map((issue) => structuredClone(issue));
+    },
+    async editIssue(number, edits) {
+      const current = issues.get(Number(number));
+      const nextLabels = new Set(current.labels.map((label) => label.name || label));
+      for (const label of edits.removeLabels || []) nextLabels.delete(label);
+      for (const label of edits.addLabels || []) nextLabels.add(label);
+      const updated = {
+        ...current,
+        body: edits.body ?? current.body,
+        state: edits.state === 'closed' ? 'CLOSED' : current.state,
+        labels: [...nextLabels].map((label) => ({ name: label })),
+      };
+      issues.set(Number(number), updated);
+      return structuredClone(updated);
+    },
+  };
+
+  const closedParents = await cascadeCloseParentsFromIssue(4, 'story', { backend });
+  assert.deepEqual(closedParents.map((issue) => issue.number), [2, 1]);
+  assert.equal(issues.get(2).state, 'CLOSED');
+  assert.equal(issues.get(1).state, 'CLOSED');
 });

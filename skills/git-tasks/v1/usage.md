@@ -12,6 +12,7 @@ Use this skill when you need a fast, structured way to inspect or update GitHub 
 - Ensure `gh auth status` succeeds.
 - Prefer `--short` output unless you need full issue bodies or comments.
 - Start with `git-tasks overview --depth 2` before drilling into individual issues.
+- Install the skill anywhere with `npx git-tasks skill install --target all`.
 
 ## Recommended workflow
 
@@ -47,6 +48,8 @@ git-tasks story show <n>
 ```bash
 git-tasks epic update <n> --status closed --points 21
 git-tasks sprint update <n> --status closed
+git-tasks story update <n> --status in-progress
+git-tasks story update <n> --status ready-for-review --reviewer octocat
 git-tasks story update <n> --status closed
 ```
 

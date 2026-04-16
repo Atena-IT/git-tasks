@@ -26,6 +26,14 @@ The package and skill are branded as `git-tasks`, while the GitHub repository UR
 
 ## Install the Agent Skill
 
+### One-command installer
+
+```bash
+npx git-tasks skill install --target all
+```
+
+Available targets: `claude`, `copilot`, `codex`, `gemini`, `cline`, `all`.
+
 ### AgentSkills installer
 
 ```bash
@@ -92,7 +100,7 @@ git-tasks sprint update <number> [--title <text>] [--status open|closed]
 git-tasks story create "Title" [-s <sprint>] [-e <epic>] [-p <points>] [--priority low|medium|high]
 git-tasks story list [--sprint <n>] [--epic <n>] [--assignee <user>] [--state open|closed|all] [--short]
 git-tasks story show <number> [--comments]
-git-tasks story update <number> [--status closed]
+git-tasks story update <number> [--status open|in-progress|ready-for-review|closed] [--reviewer <user>]
 ```
 
 ### Overview
@@ -114,7 +122,16 @@ git-tasks wiki show <file>
 git-tasks overview --depth 2
 git-tasks epic list --short
 git-tasks story list --short --sprint 5
+git-tasks story update 42 --status in-progress
+git-tasks story update 42 --status ready-for-review --reviewer octocat
 ```
+
+## Task lifecycle automation
+
+- `story update --status in-progress` keeps the story open, updates its workflow status, and ensures a draft PR exists for the current branch.
+- `story update --status ready-for-review` promotes the linked draft PR to ready for review and can request reviewers via `--reviewer` or `GIT_TASKS_REVIEWERS=user1,user2`.
+- `story update --status closed` closes the story and automatically closes the parent sprint and epic when all of their children are closed.
+- `sprint update --status closed` also cascades closure up to the parent epic when appropriate.
 
 ## Adding a Backend
 

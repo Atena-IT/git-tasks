@@ -75,6 +75,7 @@ ${description || '<!-- User story description -->'}
 - **Epic:** ${epicNumber ? `#${epicNumber}` : ''}
 - **Assignee:** ${assignee}
 - **Priority:** ${priority}
+- **Linked PR:** 
 
 ## Tasks
 - [ ] task 1
