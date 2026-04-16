@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CLI = join(__dirname, '..', 'bin', 'geet-tasks.js');
+const CLI = join(__dirname, '..', 'bin', 'git-tasks.js');
 const REPO_ROOT = join(__dirname, '..');
 
 function run(args, options = {}) {
@@ -21,7 +21,7 @@ function run(args, options = {}) {
 test('shows help with --help', () => {
   const result = run(['--help']);
   assert.equal(result.status, 0, `Expected exit 0, got ${result.status}\n${result.stderr}`);
-  assert.ok(result.stdout.includes('geet-tasks'), 'Expected program name in help');
+  assert.ok(result.stdout.includes('git-tasks'), 'Expected program name in help');
   assert.ok(result.stdout.includes('epic'), 'Expected epic command in help');
   assert.ok(result.stdout.includes('sprint'), 'Expected sprint command in help');
   assert.ok(result.stdout.includes('story'), 'Expected story command in help');
@@ -92,40 +92,40 @@ test('story create --help shows --sprint and --epic options', () => {
   assert.ok(result.stdout.includes('--priority'));
 });
 
-test('package metadata targets geet-tasks on Node.js 24+', async () => {
+test('package metadata targets git-tasks on Node.js 24+', async () => {
   const pkg = JSON.parse(fs.readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
-  assert.equal(pkg.name, 'geet-tasks');
-  assert.equal(pkg.bin['geet-tasks'], './bin/geet-tasks.js');
+  assert.equal(pkg.name, 'git-tasks');
+  assert.equal(pkg.bin['git-tasks'], './bin/git-tasks.js');
   assert.equal(pkg.engines.node, '>=24');
 });
 
 test('agent skill is packaged in the installable repo layout', () => {
-  const skillPath = join(REPO_ROOT, 'skills', 'geet-tasks', 'SKILL.md');
-  const versionedSkillPath = join(REPO_ROOT, 'skills', 'geet-tasks', 'v1', 'usage.md');
+  const skillPath = join(REPO_ROOT, 'skills', 'git-tasks', 'SKILL.md');
+  const versionedSkillPath = join(REPO_ROOT, 'skills', 'git-tasks', 'v1', 'usage.md');
   const skill = fs.readFileSync(skillPath, 'utf8');
   const versionedSkill = fs.readFileSync(versionedSkillPath, 'utf8');
 
-  assert.match(skill, /^---\nname: geet-tasks\ndescription:/);
-  assert.ok(skill.includes('geet-tasks overview --depth 2'));
+  assert.match(skill, /^---\nname: git-tasks\ndescription:/);
+  assert.ok(skill.includes('git-tasks overview --depth 2'));
   assert.equal(versionedSkill, skill);
 });
 
-test('wiki init creates geet-tasks-branded README content', () => {
-  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'geet-tasks-wiki-'));
+test('wiki init creates git-tasks-branded README content', () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-'));
   const result = run(['wiki', 'init'], { cwd });
   const readme = fs.readFileSync(join(cwd, 'wiki', 'README.md'), 'utf8');
 
   assert.equal(result.status, 0);
-  assert.ok(readme.includes('managed by geet-tasks'));
-  assert.ok(readme.includes('geet-tasks wiki list'));
+  assert.ok(readme.includes('managed by git-tasks'));
+  assert.ok(readme.includes('git-tasks wiki list'));
 });
 
 test('wiki list warns with the renamed command when wiki is missing', () => {
-  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'geet-tasks-list-'));
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-list-'));
   const result = run(['wiki', 'list'], { cwd });
 
   assert.equal(result.status, 0);
-  assert.ok(result.stdout.includes('Run: geet-tasks wiki init'));
+  assert.ok(result.stdout.includes('Run: git-tasks wiki init'));
 });
 
 test('parseIssueTitle correctly identifies epics', async () => {

@@ -1,8 +1,8 @@
-# geet-tasks
+# git-tasks
 
 > AI-native GitHub issue planning from the command line.
 
-`geet-tasks` wraps the [GitHub CLI (`gh`)](https://cli.github.com/) so humans and coding agents can manage **epics**, **sprints**, and **user stories** without leaving the terminal.
+`git-tasks` wraps the [GitHub CLI (`gh`)](https://cli.github.com/) so humans and coding agents can manage **epics**, **sprints**, and **user stories** without leaving the terminal.
 
 ## Prerequisites
 
@@ -12,8 +12,8 @@
 ## Install the CLI
 
 ```bash
-npm install -g geet-tasks
-npx geet-tasks --help
+npm install -g git-tasks
+npx git-tasks --help
 ```
 
 Until the npm package is published, install the current GitHub source with:
@@ -22,7 +22,7 @@ Until the npm package is published, install the current GitHub source with:
 npm install -g github:Atena-IT/git-tasks
 ```
 
-The package and skill are branded as `geet-tasks`, while the GitHub repository URL remains `Atena-IT/git-tasks`.
+The package and skill are branded as `git-tasks`, while the GitHub repository URL remains `Atena-IT/git-tasks`.
 
 ## Install the Agent Skill
 
@@ -32,7 +32,7 @@ The package and skill are branded as `geet-tasks`, while the GitHub repository U
 npx @favelasquez/agentskills
 # choose: Install from custom repository
 # repository URL: https://github.com/Atena-IT/git-tasks/tree/main/skills
-# select: geet-tasks
+# select: git-tasks
 # choose your target agent(s)
 ```
 
@@ -41,23 +41,23 @@ npx @favelasquez/agentskills
 ```bash
 # Claude Code
 mkdir -p .claude/commands
-curl -fsSL https://raw.githubusercontent.com/Atena-IT/git-tasks/main/skills/geet-tasks/SKILL.md \
-  -o .claude/commands/geet-tasks.md
+curl -fsSL https://raw.githubusercontent.com/Atena-IT/git-tasks/main/skills/git-tasks/SKILL.md \
+  -o .claude/commands/git-tasks.md
 
 # GitHub Copilot
-mkdir -p .github/skills/geet-tasks
-curl -fsSL https://raw.githubusercontent.com/Atena-IT/git-tasks/main/skills/geet-tasks/SKILL.md \
-  -o .github/skills/geet-tasks/SKILL.md
+mkdir -p .github/skills/git-tasks
+curl -fsSL https://raw.githubusercontent.com/Atena-IT/git-tasks/main/skills/git-tasks/SKILL.md \
+  -o .github/skills/git-tasks/SKILL.md
 
 # Codex / Gemini CLI / Cline
 mkdir -p .codex/skills .gemini/skills .clinerules
-curl -fsSL https://raw.githubusercontent.com/Atena-IT/git-tasks/main/skills/geet-tasks/SKILL.md \
-  -o .codex/skills/geet-tasks.md
-cp .codex/skills/geet-tasks.md .gemini/skills/geet-tasks.md
-cp .codex/skills/geet-tasks.md .clinerules/geet-tasks.md
+curl -fsSL https://raw.githubusercontent.com/Atena-IT/git-tasks/main/skills/git-tasks/SKILL.md \
+  -o .codex/skills/git-tasks.md
+cp .codex/skills/git-tasks.md .gemini/skills/git-tasks.md
+cp .codex/skills/git-tasks.md .clinerules/git-tasks.md
 ```
 
-The canonical skill source in this repository is `skills/geet-tasks/SKILL.md`.
+The canonical skill source in this repository is `skills/git-tasks/SKILL.md`.
 
 ## Issue Title Convention
 
@@ -73,47 +73,47 @@ Labels created automatically: `epic`, `sprint`, `user-story`
 
 ### Epics
 ```bash
-geet-tasks epic create "Title" [-d <desc>] [-p <points>] [--start <date>] [--end <date>] [-a <user>]
-geet-tasks epic list [--state open|closed|all] [--short]
-geet-tasks epic show <number> [--comments]
-geet-tasks epic update <number> [--title <text>] [--points <n>] [--status open|closed]
+git-tasks epic create "Title" [-d <desc>] [-p <points>] [--start <date>] [--end <date>] [-a <user>]
+git-tasks epic list [--state open|closed|all] [--short]
+git-tasks epic show <number> [--comments]
+git-tasks epic update <number> [--title <text>] [--points <n>] [--status open|closed]
 ```
 
 ### Sprints
 ```bash
-geet-tasks sprint create "Title" [-e <epic>] [-d <desc>] [-p <points>] [--start <date>] [--end <date>]
-geet-tasks sprint list [--epic <n>] [--state open|closed|all] [--short]
-geet-tasks sprint show <number> [--comments]
-geet-tasks sprint update <number> [--title <text>] [--status open|closed]
+git-tasks sprint create "Title" [-e <epic>] [-d <desc>] [-p <points>] [--start <date>] [--end <date>]
+git-tasks sprint list [--epic <n>] [--state open|closed|all] [--short]
+git-tasks sprint show <number> [--comments]
+git-tasks sprint update <number> [--title <text>] [--status open|closed]
 ```
 
 ### User Stories
 ```bash
-geet-tasks story create "Title" [-s <sprint>] [-e <epic>] [-p <points>] [--priority low|medium|high]
-geet-tasks story list [--sprint <n>] [--epic <n>] [--assignee <user>] [--state open|closed|all] [--short]
-geet-tasks story show <number> [--comments]
-geet-tasks story update <number> [--status closed]
+git-tasks story create "Title" [-s <sprint>] [-e <epic>] [-p <points>] [--priority low|medium|high]
+git-tasks story list [--sprint <n>] [--epic <n>] [--assignee <user>] [--state open|closed|all] [--short]
+git-tasks story show <number> [--comments]
+git-tasks story update <number> [--status closed]
 ```
 
 ### Overview
 ```bash
-geet-tasks overview [--depth 1|2|3] [--state open|closed|all]
+git-tasks overview [--depth 1|2|3] [--state open|closed|all]
 # depth 1=epics only, 2=+sprints, 3=+stories (default: 1)
 ```
 
 ### Wiki
 ```bash
-geet-tasks wiki init
-geet-tasks wiki list
-geet-tasks wiki show <file>
+git-tasks wiki init
+git-tasks wiki list
+git-tasks wiki show <file>
 ```
 
 ## Agent-friendly usage
 
 ```bash
-geet-tasks overview --depth 2
-geet-tasks epic list --short
-geet-tasks story list --short --sprint 5
+git-tasks overview --depth 2
+git-tasks epic list --short
+git-tasks story list --short --sprint 5
 ```
 
 ## Adding a Backend

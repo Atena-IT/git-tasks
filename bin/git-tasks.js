@@ -14,7 +14,7 @@ const pkg = require('../package.json');
 const program = new Command();
 
 program
-  .name('geet-tasks')
+  .name('git-tasks')
   .description('AI-native GitHub issue planning via epics, sprints, and user stories')
   .version(pkg.version);
 
