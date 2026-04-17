@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import getBackend from '../backends/index.js';
+import { buildLifecycleEdit, cascadeCloseParentsFromIssue } from '../automation/lifecycle.js';
 import { sprintTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
 
@@ -31,7 +32,7 @@ export function makeSprintCommand() {
         const issue = await backend.createIssue({
           title: `${prefix}: ${title}`,
           body,
-          labels: ['sprint'],
+          labels: ['sprint', 'status:open'],
           assignees: opts.assignee ? [opts.assignee] : [],
         });
         printSuccess(`Created sprint #${issue.number}: ${issue.url}`);
@@ -84,13 +85,17 @@ export function makeSprintCommand() {
     .action(async (number, opts) => {
       try {
         const backend = getBackend();
+        const currentIssue = await backend.viewIssue(number);
         const editOpts = {};
         if (opts.title) {
           const epicPart = opts.epic ? `(#${opts.epic})` : '';
           editOpts.title = `sprint${epicPart}: ${opts.title}`;
         }
-        if (opts.status) editOpts.state = opts.status;
+        if (opts.status) Object.assign(editOpts, buildLifecycleEdit(currentIssue, opts.status));
         const issue = await backend.editIssue(number, editOpts);
+        if (opts.status === 'closed') {
+          await cascadeCloseParentsFromIssue(issue, 'sprint', { backend });
+        }
         printSuccess(`Updated sprint #${issue.number}`);
       } catch (err) {
         printError(err.message);

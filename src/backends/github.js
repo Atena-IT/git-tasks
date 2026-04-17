@@ -45,9 +45,13 @@ function ensureLabel(name, color, description) {
 }
 
 const LABEL_CONFIG = {
-  'epic':       { color: '7B68EE', description: 'Epic issue' },
-  'sprint':     { color: '4169E1', description: 'Sprint issue' },
-  'user-story': { color: '3CB371', description: 'User story issue' },
+  'epic':                    { color: '7B68EE', description: 'Epic issue' },
+  'sprint':                  { color: '4169E1', description: 'Sprint issue' },
+  'user-story':              { color: '3CB371', description: 'User story issue' },
+  'status:open':             { color: 'D4C5F9', description: 'Workflow status: open' },
+  'status:in-progress':      { color: 'FBCA04', description: 'Workflow status: in progress' },
+  'status:ready-for-review': { color: '0E8A16', description: 'Workflow status: ready for review' },
+  'status:done':             { color: '5319E7', description: 'Workflow status: done' },
 };
 
 function ensureLabels(labels) {
@@ -80,6 +84,15 @@ export function listIssues({ labels = [], state = 'open', limit = 100 } = {}) {
   return runGhJSON(args);
 }
 
+export function getCurrentBranch() {
+  const result = spawnSync('git', ['branch', '--show-current'], { encoding: 'utf8' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error('Unable to determine the current git branch.');
+  }
+  return result.stdout?.trim() || '';
+}
+
 export function viewIssue(number, { comments = false } = {}) {
   const fields = 'number,title,state,body,labels,assignees,createdAt,updatedAt,url';
   const fieldsWithComments = comments ? fields + ',comments' : fields;
@@ -105,12 +118,65 @@ export function editIssue(number, { title, body, addLabels = [], removeLabels = 
   return viewIssue(number);
 }
 
+export function listPullRequests({ state = 'open', base, head, search } = {}) {
+  const args = [
+    'pr', 'list',
+    '--state', state,
+    '--json', 'number,url,title,body,isDraft,state,headRefName,baseRefName',
+  ];
+  if (base) args.push('--base', base);
+  if (head) args.push('--head', head);
+  if (search) args.push('--search', search);
+  return runGhJSON(args);
+}
+
+export function viewPullRequest(number) {
+  return runGhJSON([
+    'pr', 'view', String(number),
+    '--json', 'number,url,title,body,isDraft,state,headRefName,baseRefName',
+  ]);
+}
+
+export function createPullRequest({ title, body, base, head, draft = false }) {
+  const args = ['pr', 'create', '--title', title, '--body', body];
+  if (draft) args.push('--draft');
+  if (base) args.push('--base', base);
+  if (head) args.push('--head', head);
+
+  const output = runGh(args);
+  const match = output.match(/\/pull\/(\d+)(?:\/?|$)/);
+  if (!match) {
+    throw new Error(`Failed to determine pull request number from output:\n${output}`);
+  }
+  return viewPullRequest(match[1]);
+}
+
+export function markPullRequestReady(number) {
+  runGh(['pr', 'ready', String(number)]);
+  return viewPullRequest(number);
+}
+
+export function requestPullRequestReview(number, { reviewers = [] } = {}) {
+  const args = ['pr', 'edit', String(number)];
+  for (const reviewer of reviewers) {
+    args.push('--add-reviewer', reviewer);
+  }
+  runGh(args);
+  return viewPullRequest(number);
+}
+
 // Export a unified backend object so backends are swappable.
 const githubBackend = {
   createIssue,
   listIssues,
+  getCurrentBranch,
   viewIssue,
   editIssue,
+  listPullRequests,
+  viewPullRequest,
+  createPullRequest,
+  markPullRequestReady,
+  requestPullRequestReview,
 };
 
 export default githubBackend;

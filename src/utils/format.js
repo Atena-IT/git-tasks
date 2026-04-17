@@ -13,7 +13,7 @@ export function parseIssueTitle(rawTitle) {
   const sprintMatch = rawTitle.match(/^sprint\(([^)]+)\):\s*(.+)$/i);
   if (sprintMatch) return { type: 'sprint', ref: sprintMatch[1].trim(), title: sprintMatch[2].trim() };
 
-  const storyMatch = rawTitle.match(/^us\(([^)]+)\):\s*(.+)$/i);
+  const storyMatch = rawTitle.match(/^story\(([^)]+)\):\s*(.+)$/i);
   if (storyMatch) return { type: 'story', ref: storyMatch[1].trim(), title: storyMatch[2].trim() };
 
   return { type: 'unknown', ref: null, title: rawTitle };

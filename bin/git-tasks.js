@@ -6,6 +6,7 @@ import { makeEpicCommand } from '../src/commands/epic.js';
 import { makeSprintCommand } from '../src/commands/sprint.js';
 import { makeStoryCommand } from '../src/commands/story.js';
 import { makeOverviewCommand } from '../src/commands/overview.js';
+import { makeSkillCommand } from '../src/commands/skill.js';
 import { makeWikiCommand } from '../src/commands/wiki.js';
 
 const require = createRequire(import.meta.url);
@@ -22,6 +23,7 @@ program.addCommand(makeEpicCommand());
 program.addCommand(makeSprintCommand());
 program.addCommand(makeStoryCommand());
 program.addCommand(makeOverviewCommand());
+program.addCommand(makeSkillCommand());
 program.addCommand(makeWikiCommand());
 
 program.parse(process.argv);

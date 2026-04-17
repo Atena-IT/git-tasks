@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import getBackend from '../backends/index.js';
+import { buildLifecycleEdit } from '../automation/lifecycle.js';
 import { epicTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
 
@@ -27,7 +28,7 @@ export function makeEpicCommand() {
         const issue = await backend.createIssue({
           title: `epic: ${title}`,
           body,
-          labels: ['epic'],
+          labels: ['epic', 'status:open'],
           assignees: opts.assignee ? [opts.assignee] : [],
         });
         printSuccess(`Created epic #${issue.number}: ${issue.url}`);
@@ -75,9 +76,10 @@ export function makeEpicCommand() {
     .action(async (number, opts) => {
       try {
         const backend = getBackend();
+        const currentIssue = await backend.viewIssue(number);
         const editOpts = {};
         if (opts.title) editOpts.title = `epic: ${opts.title}`;
-        if (opts.status) editOpts.state = opts.status;
+        if (opts.status) Object.assign(editOpts, buildLifecycleEdit(currentIssue, opts.status));
         const issue = await backend.editIssue(number, editOpts);
         printSuccess(`Updated epic #${issue.number}`);
       } catch (err) {
