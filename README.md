@@ -34,6 +34,10 @@ npx git-tasks skill install --target all
 
 Available targets: `claude`, `copilot`, `codex`, `gemini`, `cline`, `all`.
 
+### Claude Code marketplace
+
+The repository ships a `.claude-plugin/marketplace.json` that registers git-tasks in the Claude Code plugin marketplace. Claude Code will pick up the skill automatically from `skills/git-tasks/SKILL.md` when the plugin is installed.
+
 ### AgentSkills installer
 
 ```bash

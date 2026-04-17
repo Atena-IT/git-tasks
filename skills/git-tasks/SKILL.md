@@ -1,23 +1,20 @@
 ---
 name: git-tasks
-description: >-
-  Use when acting as an AI project manager to plan, track, and drive the
-  lifecycle of epics, sprints, and user stories via GitHub issues. For
-  looking up a specific existing issue or pull request, use standard `gh`
-  commands instead.
-tools:
-  - Bash
+description: AI-native project management CLI for GitHub. Use when the user wants to inspect or update the planning hierarchy (epics, sprints, user stories), drive story lifecycle transitions (start work, ready for review, close), or integrate raw inputs such as client meeting notes or feature transcripts into the existing plan — either by updating open items or creating new ones as a diff. Do not use for reading a single issue or PR without any project-management intent; prefer standard gh commands for those one-off lookups. Triggers include "what's the current sprint status", "create a story for this feature", "move this story to in-progress", "close out the sprint", "update the plan based on today's meeting notes", or any request involving epics, sprints, or story lifecycle management.
+allowed-tools: Bash(git-tasks:*), Bash(npx git-tasks:*)
+hidden: true
 ---
 
 # git-tasks
 
-**Use when** you are operating as an AI project manager — creating or updating epics, sprints, or stories, driving story lifecycle transitions (start work, request review, close), or checking overall project health.
+**Use when** you are acting as an AI project manager — inspecting or updating epics, sprints, and user stories, driving story lifecycle transitions, or translating raw inputs (meeting notes, feature requests, transcripts) into structured project plan changes.
 
-**Do not use** git-tasks for one-off issue/PR lookups. For those, reach for standard `gh` commands:
+**Do not use** for one-off issue or PR lookups without project-management intent. For those, use standard `gh` commands:
 ```bash
 gh issue view <n>
 gh pr view <n>
-gh issue comment <n> --body "..."
+gh issue list
+gh pr list
 ```
 
 ## Before you start

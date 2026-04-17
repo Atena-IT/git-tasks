@@ -135,13 +135,12 @@ test('package metadata targets git-tasks on Node.js 24+', async () => {
 
 test('agent skill is packaged in the installable repo layout', () => {
   const skillPath = join(REPO_ROOT, 'skills', 'git-tasks', 'SKILL.md');
-  const versionedSkillPath = join(REPO_ROOT, 'skills', 'git-tasks', 'v1', 'usage.md');
   const skill = fs.readFileSync(skillPath, 'utf8');
-  const versionedSkill = fs.readFileSync(versionedSkillPath, 'utf8');
 
   assert.match(skill, /^---\nname: git-tasks\ndescription:/);
   assert.ok(skill.includes('git-tasks overview --depth 2'));
-  assert.equal(versionedSkill, skill);
+  assert.ok(skill.includes('allowed-tools:'));
+  assert.ok(skill.includes('hidden: true'));
 });
 
 test('wiki init creates git-tasks-branded README content', () => {

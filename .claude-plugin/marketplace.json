@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "git-tasks",
+  "description": "AI-native GitHub issue planning from the command line",
+  "owner": {
+    "name": "Atena Reply S.r.l.",
+    "email": "atena@reply.it"
+  },
+  "plugins": [
+    {
+      "name": "git-tasks",
+      "description": "Manage epics, sprints, and user stories via GitHub issues with lifecycle-aware automation",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/git-tasks"],
+      "category": "development"
+    }
+  ]
+}
