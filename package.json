@@ -1,6 +1,6 @@
 {
   "name": "@atena-reply/git-tasks",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-native GitHub issue planning via GitHub issues",
   "type": "module",
   "bin": {

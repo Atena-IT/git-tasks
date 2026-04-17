@@ -25,7 +25,7 @@ jobs:
 
       - name: Verify tag matches package version
         run: |
-          PACKAGE_VERSION="$(node -p \"require('./package.json').version\")"
+          PACKAGE_VERSION="$(node -p 'require("./package.json").version')"
           EXPECTED_TAG="v${PACKAGE_VERSION}"
 
           if [ "$GITHUB_REF_NAME" != "$EXPECTED_TAG" ]; then
