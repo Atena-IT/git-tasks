@@ -19,7 +19,42 @@ gh pr list
 
 ## Before you start
 
-- Ensure `gh auth status` succeeds.
+### 1. Verify and install the CLI
+
+Check whether `git-tasks` is available:
+
+```bash
+git-tasks --version 2>/dev/null || npx --yes git-tasks --version
+```
+
+If the global command is missing, install it permanently:
+
+```bash
+npm install -g git-tasks
+```
+
+Or use it on-demand without installing:
+
+```bash
+npx git-tasks <command>
+```
+
+### 2. Verify GitHub authentication
+
+```bash
+gh auth status
+```
+
+If the command fails or shows "not logged in", run:
+
+```bash
+gh auth login
+```
+
+Follow the interactive prompts (choose GitHub.com → HTTPS → browser or token).
+
+### 3. Usage notes
+
 - Prefer `--short` output unless you need full issue bodies or comments.
 - Start with `git-tasks overview --depth 2` before drilling into individual issues.
 - Install the skill anywhere with `npx git-tasks skill install --target all`.
