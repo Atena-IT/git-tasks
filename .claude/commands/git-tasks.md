@@ -1,17 +1,31 @@
 ---
 name: git-tasks
-description: Use the git-tasks CLI to manage GitHub issues as epics, sprints, and user stories.
+description: >-
+  Use when acting as an AI project manager to plan, track, and drive the
+  lifecycle of epics, sprints, and user stories via GitHub issues. For
+  looking up a specific existing issue or pull request, use standard `gh`
+  commands instead.
+tools:
+  - Bash
 ---
 
 # git-tasks
 
-Use this skill when you need a fast, structured way to inspect or update GitHub issue planning data with the `git-tasks` CLI.
+**Use when** you are operating as an AI project manager — creating or updating epics, sprints, or stories, driving story lifecycle transitions (start work, request review, close), or checking overall project health.
+
+**Do not use** git-tasks for one-off issue/PR lookups. For those, reach for standard `gh` commands:
+```bash
+gh issue view <n>
+gh pr view <n>
+gh issue comment <n> --body "..."
+```
 
 ## Before you start
 
 - Ensure `gh auth status` succeeds.
 - Prefer `--short` output unless you need full issue bodies or comments.
 - Start with `git-tasks overview --depth 2` before drilling into individual issues.
+- Install the skill anywhere with `npx git-tasks skill install --target all`.
 
 ## Recommended workflow
 
@@ -28,7 +42,7 @@ Use this skill when you need a fast, structured way to inspect or update GitHub 
 ```bash
 git-tasks epic create "Epic title" -d "description" -p 13
 git-tasks sprint create "Sprint title" --epic <n> --start YYYY-MM-DD --end YYYY-MM-DD
-git-tasks story create "Story title" --sprint <n> --epic <n> -p 3 --priority high
+git-tasks story create "Story title" --sprint <n> --epic <n> -p 3 --priority high -a <username>
 ```
 
 ### Inspect
@@ -47,7 +61,10 @@ git-tasks story show <n>
 ```bash
 git-tasks epic update <n> --status closed --points 21
 git-tasks sprint update <n> --status closed
+git-tasks story update <n> --status in-progress
+git-tasks story update <n> --status ready-for-review --reviewer octocat
 git-tasks story update <n> --status closed
+git-tasks story update <n> -a <username>
 ```
 
 ### Wiki
@@ -62,7 +79,7 @@ git-tasks wiki show <filename>
 
 - Epic: `epic: <title>`
 - Sprint: `sprint(#<epic-number>): <title>`
-- User story: `us(#<sprint-number>): <title>`
+- User story: `story(#<sprint-number>): <title>`
 
 ## Output guidance
 

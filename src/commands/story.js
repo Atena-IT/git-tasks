@@ -33,7 +33,7 @@ export function makeStoryCommand() {
           priority: opts.priority,
         });
         const sprintRef = opts.sprint ? `#${opts.sprint}` : '';
-        const prefix = sprintRef ? `us(${sprintRef})` : 'us';
+        const prefix = sprintRef ? `story(${sprintRef})` : 'story';
         const issue = await backend.createIssue({
           title: `${prefix}: ${title}`,
           body,
@@ -105,7 +105,7 @@ export function makeStoryCommand() {
         const editOpts = {};
         if (opts.title) {
           const sprintPart = opts.sprint ? `(#${opts.sprint})` : '';
-          editOpts.title = `us${sprintPart}: ${opts.title}`;
+          editOpts.title = `story${sprintPart}: ${opts.title}`;
         }
         if (opts.assignee) editOpts.addAssignees = [opts.assignee];
         let issue;

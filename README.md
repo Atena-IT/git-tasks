@@ -73,7 +73,7 @@ The canonical skill source in this repository is `skills/git-tasks/SKILL.md`.
 |------------|-------------------------------|--------------------------------|
 | Epic       | `epic: <title>`               | `epic: User Authentication`    |
 | Sprint     | `sprint(<epic-ref>): <title>` | `sprint(#3): Auth Sprint 1`    |
-| User Story | `us(<sprint-ref>): <title>`   | `us(#7): Login form`           |
+| User Story | `story(<sprint-ref>): <title>` | `story(#7): Login form`        |
 
 Labels created automatically: `epic`, `sprint`, `user-story`
 

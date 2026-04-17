@@ -180,7 +180,7 @@ test('parseIssueTitle correctly identifies sprints', async () => {
 
 test('parseIssueTitle correctly identifies user stories', async () => {
   const { parseIssueTitle } = await import('../src/utils/format.js');
-  const r = parseIssueTitle('us(#12): As a user I want login');
+  const r = parseIssueTitle('story(#12): As a user I want login');
   assert.equal(r.type, 'story');
   assert.equal(r.ref, '#12');
   assert.equal(r.title, 'As a user I want login');
@@ -220,7 +220,7 @@ test('format helpers and templates render expected project data', async () => {
 
   assert.ok(formatIssueList([issue], { short: true }).includes('#1'));
   assert.ok(formatIssueDetail(issue, { comments: true }).includes('Looks good'));
-  assert.ok(formatOverview([{ ...issue, sprints: [{ number: 2, title: 'sprint(#1): Sprint 1', state: 'OPEN', stories: [{ number: 3, title: 'us(#2): Story', state: 'OPEN' }] }] }], { depth: 3 }).includes('#3'));
+  assert.ok(formatOverview([{ ...issue, sprints: [{ number: 2, title: 'sprint(#1): Sprint 1', state: 'OPEN', stories: [{ number: 3, title: 'story(#2): Story', state: 'OPEN' }] }] }], { depth: 3 }).includes('#3'));
   assert.ok(epicTemplate({ description: 'Ship auth', points: 13 }).includes('Ship auth'));
   assert.ok(sprintTemplate({ epicNumber: 1, points: 5 }).includes('#1'));
   assert.ok(storyTemplate({ sprintNumber: 2, epicNumber: 1, priority: 'high' }).includes('Priority:** high'));
@@ -279,8 +279,8 @@ test('cascadeCloseParentsFromIssue closes sprint and epic when all children are 
   const issues = new Map([
     [1, { number: 1, title: 'epic: Platform', state: 'OPEN', body: '## Metadata\n- **Status:** open\n', labels: [{ name: 'epic' }, { name: 'status:open' }] }],
     [2, { number: 2, title: 'sprint(#1): Sprint 1', state: 'OPEN', body: '## Metadata\n- **Status:** open\n', labels: [{ name: 'sprint' }, { name: 'status:open' }] }],
-    [3, { number: 3, title: 'us(#2): Story A', state: 'CLOSED', body: '## Metadata\n- **Status:** closed\n', labels: [{ name: 'user-story' }, { name: 'status:done' }] }],
-    [4, { number: 4, title: 'us(#2): Story B', state: 'CLOSED', body: '## Metadata\n- **Status:** closed\n', labels: [{ name: 'user-story' }, { name: 'status:done' }] }],
+    [3, { number: 3, title: 'story(#2): Story A', state: 'CLOSED', body: '## Metadata\n- **Status:** closed\n', labels: [{ name: 'user-story' }, { name: 'status:done' }] }],
+    [4, { number: 4, title: 'story(#2): Story B', state: 'CLOSED', body: '## Metadata\n- **Status:** closed\n', labels: [{ name: 'user-story' }, { name: 'status:done' }] }],
   ]);
 
   const backend = {
