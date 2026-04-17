@@ -12,24 +12,18 @@
 ## Install the CLI
 
 ```bash
-npm install -g git-tasks
-npx git-tasks --help
+npm install -g @atena-reply/git-tasks
+npx @atena-reply/git-tasks --help
 ```
 
-Until the npm package is published, install the current GitHub source with:
-
-```bash
-npm install -g github:Atena-IT/git-tasks
-```
-
-The package and skill are branded as `git-tasks`, while the GitHub repository URL remains `Atena-IT/git-tasks`.
+The npm package is published as `@atena-reply/git-tasks`, while the installed command remains `git-tasks`. The GitHub repository URL remains `Atena-IT/git-tasks`.
 
 ## Install the Agent Skill
 
 ### One-command installer
 
 ```bash
-npx git-tasks skill install --target all
+npx @atena-reply/git-tasks skill install --target all
 ```
 
 Available targets: `claude`, `copilot`, `codex`, `gemini`, `cline`, `all`.

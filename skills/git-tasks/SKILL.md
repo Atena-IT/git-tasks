@@ -1,7 +1,7 @@
 ---
 name: git-tasks
 description: AI-native project management CLI for GitHub. Use when the user wants to inspect or update the planning hierarchy (epics, sprints, user stories), drive story lifecycle transitions (start work, ready for review, close), or integrate raw inputs such as client meeting notes or feature transcripts into the existing plan — either by updating open items or creating new ones as a diff. Do not use for reading a single issue or PR without any project-management intent; prefer standard gh commands for those one-off lookups. Triggers include "what's the current sprint status", "create a story for this feature", "move this story to in-progress", "close out the sprint", "update the plan based on today's meeting notes", or any request involving epics, sprints, or story lifecycle management.
-allowed-tools: Bash(git-tasks:*), Bash(npx git-tasks:*)
+allowed-tools: Bash(git-tasks:*), Bash(npx @atena-reply/git-tasks:*)
 hidden: true
 ---
 
@@ -22,7 +22,7 @@ gh pr list
 - Ensure `gh auth status` succeeds.
 - Prefer `--short` output unless you need full issue bodies or comments.
 - Start with `git-tasks overview --depth 2` before drilling into individual issues.
-- Install the skill anywhere with `npx git-tasks skill install --target all`.
+- Install the skill anywhere with `npx @atena-reply/git-tasks skill install --target all`.
 
 ## Recommended workflow
 

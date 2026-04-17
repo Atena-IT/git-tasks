@@ -126,10 +126,11 @@ test('skill install fails for unknown targets', async () => {
   }
 });
 
-test('package metadata targets git-tasks on Node.js 24+', async () => {
+test('package metadata targets the scoped npm package on Node.js 24+', async () => {
   const pkg = JSON.parse(fs.readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
-  assert.equal(pkg.name, 'git-tasks');
+  assert.equal(pkg.name, '@atena-reply/git-tasks');
   assert.equal(pkg.bin['git-tasks'], './bin/git-tasks.js');
+  assert.equal(pkg.publishConfig.access, 'public');
   assert.equal(pkg.engines.node, '>=24');
 });
 
@@ -137,7 +138,7 @@ test('agent skill is packaged in the installable repo layout', () => {
   const skillPath = join(REPO_ROOT, 'skills', 'git-tasks', 'SKILL.md');
   const skill = fs.readFileSync(skillPath, 'utf8');
 
-  assert.match(skill, /^---\nname: git-tasks\ndescription:/);
+  assert.match(skill, /^---\r?\nname: git-tasks\r?\ndescription:/);
   assert.ok(skill.includes('git-tasks overview --depth 2'));
   assert.ok(skill.includes('allowed-tools:'));
   assert.ok(skill.includes('hidden: true'));

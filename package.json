@@ -1,5 +1,5 @@
 {
-  "name": "git-tasks",
+  "name": "@atena-reply/git-tasks",
   "version": "1.0.0",
   "description": "AI-native GitHub issue planning via GitHub issues",
   "type": "module",
@@ -8,8 +8,16 @@
   },
   "scripts": {
     "test": "node --test test/cli.test.js",
-    "test:coverage": "node --test --experimental-test-coverage test/cli.test.js"
+    "test:coverage": "node --test --experimental-test-coverage test/cli.test.js",
+    "pack:dry-run": "npm pack --dry-run"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "skills/",
+    ".claude-plugin/",
+    "README.md"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Atena-IT/git-tasks.git"
@@ -29,6 +37,9 @@
     "url": "https://github.com/Atena-IT/git-tasks/issues"
   },
   "homepage": "https://github.com/Atena-IT/git-tasks#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "chalk": "^5.6.2",
     "commander": "^14.0.3"
