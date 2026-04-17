@@ -129,7 +129,7 @@ test('skill install fails for unknown targets', async () => {
 test('package metadata targets the scoped npm package on Node.js 24+', async () => {
   const pkg = JSON.parse(fs.readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.name, '@atena-reply/git-tasks');
-  assert.equal(pkg.bin['git-tasks'], './bin/git-tasks.js');
+  assert.equal(pkg.bin['git-tasks'], 'bin/git-tasks.js');
   assert.equal(pkg.publishConfig.access, 'public');
   assert.equal(pkg.engines.node, '>=24');
 });
