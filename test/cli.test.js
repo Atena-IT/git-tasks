@@ -314,3 +314,62 @@ test('cascadeCloseParentsFromIssue closes sprint and epic when all children are 
   assert.equal(issues.get(2).state, 'CLOSED');
   assert.equal(issues.get(1).state, 'CLOSED');
 });
+
+test('epic create works with gh issue create stdout output and no unsupported json flag', async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-gh-'));
+  const ghLog = join(cwd, 'gh.log');
+  const ghPath = join(cwd, 'gh');
+  fs.writeFileSync(ghPath, `#!/usr/bin/env node
+import fs from 'node:fs';
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(args) + '\\n');
+if (args[0] === 'label' && args[1] === 'list') process.exit(0);
+if (args[0] === 'label' && args[1] === 'create') process.exit(0);
+if (args[0] === 'issue' && args[1] === 'create') {
+  if (args.includes('--json')) {
+    console.error('unknown flag: --json');
+    process.exit(1);
+  }
+  process.stdout.write('https://github.com/Atena-IT/git-tasks/issues/123\\n');
+  process.exit(0);
+}
+if (args[0] === 'issue' && args[1] === 'view') {
+  process.stdout.write(JSON.stringify({
+    number: 123,
+    url: 'https://github.com/Atena-IT/git-tasks/issues/123',
+    title: 'epic: Ship auth',
+    state: 'OPEN',
+    body: 'Test body',
+    labels: [{ name: 'epic' }, { name: 'status:open' }],
+    assignees: [],
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  }));
+  process.exit(0);
+}
+console.error('Unexpected gh invocation: ' + args.join(' '));
+process.exit(1);
+`);
+  fs.chmodSync(ghPath, 0o755);
+
+  try {
+    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3'], {
+      cwd,
+      env: { PATH: `${cwd}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}` },
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.includes('Created epic #123: https://github.com/Atena-IT/git-tasks/issues/123'));
+
+    const commands = fs.readFileSync(ghLog, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    const issueCreate = commands.find((args) => args[0] === 'issue' && args[1] === 'create');
+    const issueView = commands.find((args) => args[0] === 'issue' && args[1] === 'view');
+
+    assert.ok(issueCreate, 'expected gh issue create to be called');
+    assert.ok(issueView, 'expected gh issue view to be called');
+    assert.ok(!issueCreate.includes('--json'), 'gh issue create should not receive --json');
+    assert.deepEqual(issueView, ['issue', 'view', '123', '--json', 'number,title,state,body,labels,assignees,createdAt,updatedAt,url']);
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
