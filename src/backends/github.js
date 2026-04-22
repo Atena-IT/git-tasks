@@ -28,6 +28,14 @@ function runGhJSON(args) {
   }
 }
 
+function extractIssueNumberFromOutput(output) {
+  const match = output.match(/\/issues\/(\d+)(?:\/|$)/);
+  if (!match) {
+    throw new Error(`Failed to determine issue number from output:\n${output}`);
+  }
+  return match[1];
+}
+
 /**
  * Ensure a label exists in the repo; create it if missing.
  */
@@ -68,8 +76,9 @@ export function createIssue({ title, body, labels = [], assignees = [] }) {
   const args = ['issue', 'create', '--title', title, '--body', body];
   for (const l of labels) args.push('--label', l);
   for (const a of assignees) args.push('--assignee', a);
-  args.push('--json', 'number,url,title');
-  return runGhJSON(args);
+
+  const output = runGh(args);
+  return viewIssue(extractIssueNumberFromOutput(output));
 }
 
 export function listIssues({ labels = [], state = 'open', limit = 100 } = {}) {
