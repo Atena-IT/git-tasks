@@ -7,6 +7,7 @@ import { makeSprintCommand } from '../src/commands/sprint.js';
 import { makeStoryCommand } from '../src/commands/story.js';
 import { makeOverviewCommand } from '../src/commands/overview.js';
 import { makeSkillCommand } from '../src/commands/skill.js';
+import { makeInitCommand } from '../src/commands/init.js';
 import { makeWikiCommand } from '../src/commands/wiki.js';
 
 const require = createRequire(import.meta.url);
@@ -19,6 +20,7 @@ program
   .description('AI-native GitHub issue planning via epics, sprints, and user stories')
   .version(pkg.version);
 
+program.addCommand(makeInitCommand());
 program.addCommand(makeEpicCommand());
 program.addCommand(makeSprintCommand());
 program.addCommand(makeStoryCommand());

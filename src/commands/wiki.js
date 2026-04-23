@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { existsSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { dirname, join, relative, resolve } from 'path';
-import { printSuccess, printError } from '../utils/format.js';
+import { printError } from '../utils/format.js';
 import chalk from 'chalk';
 
 const WIKI_DIR = 'wiki';
@@ -54,8 +54,33 @@ function listMarkdownFiles(dir, prefix = '') {
   return files.sort((left, right) => left.localeCompare(right));
 }
 
-function resolveWikiFilePath(filename) {
-  const wikiRoot = resolve(WIKI_DIR);
+function getWikiRoot(rootDir = process.cwd()) {
+  return resolve(rootDir, WIKI_DIR);
+}
+
+export function initializeWiki(rootDir = process.cwd()) {
+  const wikiRoot = getWikiRoot(rootDir);
+  const files = [
+    [join(wikiRoot, 'README.md'), WIKI_README],
+    [join(wikiRoot, RAW_DIR, 'README.md'), RAW_WIKI_README],
+    [join(wikiRoot, PROCESSED_DIR, 'README.md'), PROCESSED_WIKI_README],
+  ];
+  const createdPaths = [];
+
+  mkdirSync(wikiRoot, { recursive: true });
+  for (const [filePath, contents] of files) {
+    mkdirSync(dirname(filePath), { recursive: true });
+    if (!existsSync(filePath)) {
+      writeFileSync(filePath, contents, 'utf8');
+      createdPaths.push(filePath);
+    }
+  }
+
+  return { createdPaths, wikiRoot };
+}
+
+function resolveWikiFilePath(filename, rootDir = process.cwd()) {
+  const wikiRoot = getWikiRoot(rootDir);
   const requested = filename.endsWith('.md') ? filename : `${filename}.md`;
   const filePath = resolve(wikiRoot, requested);
   const relativePath = relative(wikiRoot, filePath);
@@ -69,44 +94,12 @@ export function makeWikiCommand() {
   const wiki = new Command('wiki').description('Manage local wiki files for raw notes and processed audit logs');
 
   wiki
-    .command('init')
-    .description('Initialize wiki/ with raw note intake and processed audit-log folders')
-    .action(() => {
-      try {
-        if (!existsSync(WIKI_DIR)) {
-          mkdirSync(WIKI_DIR, { recursive: true });
-        }
-        const files = [
-          [join(WIKI_DIR, 'README.md'), WIKI_README],
-          [join(WIKI_DIR, RAW_DIR, 'README.md'), RAW_WIKI_README],
-          [join(WIKI_DIR, PROCESSED_DIR, 'README.md'), PROCESSED_WIKI_README],
-        ];
-        const createdPaths = [];
-        for (const [filePath, contents] of files) {
-          mkdirSync(dirname(filePath), { recursive: true });
-          if (!existsSync(filePath)) {
-            writeFileSync(filePath, contents, 'utf8');
-            createdPaths.push(filePath);
-          }
-        }
-        if (!createdPaths.length) {
-          const readmePath = join(WIKI_DIR, 'README.md');
-          console.log(chalk.yellow(`Wiki already initialized at ${readmePath}`));
-        } else {
-          printSuccess(`Created ${createdPaths.join(', ')}`);
-        }
-      } catch (err) {
-        printError(err.message);
-      }
-    });
-
-  wiki
     .command('list')
     .description('List wiki markdown files recursively')
     .action(() => {
       try {
         if (!existsSync(WIKI_DIR)) {
-          console.log(chalk.yellow('Wiki not initialized. Run: git-tasks wiki init'));
+          console.log(chalk.yellow('Wiki not initialized. Run: git-tasks init'));
           return;
         }
         const files = listMarkdownFiles(WIKI_DIR);

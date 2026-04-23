@@ -109,7 +109,7 @@ git-tasks overview [--depth 1|2|3] [--state open|closed|all]
 
 ### Wiki
 ```bash
-git-tasks wiki init
+git-tasks init
 git-tasks wiki list
 git-tasks wiki show raw/<file>
 git-tasks wiki show processed/<timestamped-file>
@@ -118,7 +118,7 @@ git-tasks wiki show processed/<timestamped-file>
 ## Agent-friendly usage
 
 ```bash
-git-tasks wiki init
+git-tasks init
 git-tasks overview --depth 2
 git-tasks epic list --short
 git-tasks story list --short --sprint 5
@@ -135,7 +135,7 @@ git-tasks story update 42 --status ready-for-review --reviewer octocat
 
 ## Wiki-first audit workflow
 
-- Initialize the wiki once with `git-tasks wiki init`.
+- Initialize the repository once with `git-tasks init`.
 - Put raw human inputs in `wiki/raw/` exactly as they arrive: meeting notes, pasted chats, TODO dumps, transcripts, or user scratch notes.
 - Before decomposing work or changing the backlog, write a new timestamped file into `wiki/processed/` that captures the interpreted knowledge and intended planning change.
 - Treat `wiki/processed/` as append-only. Use timestamp-prefixed filenames so entries remain ordered by arrival time and can serve as an audit trail.

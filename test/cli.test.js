@@ -24,6 +24,7 @@ test('shows help with --help', () => {
   assert.equal(result.status, 0, `Expected exit 0, got ${result.status}\n${result.stderr}`);
   assert.ok(result.stdout.includes('git-tasks'), 'Expected program name in help');
   assert.ok(result.stdout.includes('epic'), 'Expected epic command in help');
+  assert.ok(result.stdout.includes('init'), 'Expected init command in help');
   assert.ok(result.stdout.includes('skill'), 'Expected skill command in help');
   assert.ok(result.stdout.includes('sprint'), 'Expected sprint command in help');
   assert.ok(result.stdout.includes('story'), 'Expected story command in help');
@@ -68,9 +69,32 @@ test('overview --help shows options', () => {
 test('wiki --help shows subcommands', () => {
   const result = run(['wiki', '--help']);
   assert.equal(result.status, 0);
-  assert.ok(result.stdout.includes('init'));
   assert.ok(result.stdout.includes('list'));
   assert.ok(result.stdout.includes('show'));
+});
+
+test('init creates git-tasks-branded README content at git repo root', () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-init-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+
+  const result = run(['init'], { cwd });
+  const readme = fs.readFileSync(join(cwd, 'wiki', 'README.md'), 'utf8');
+  const rawReadme = fs.readFileSync(join(cwd, 'wiki', 'raw', 'README.md'), 'utf8');
+  const processedReadme = fs.readFileSync(join(cwd, 'wiki', 'processed', 'README.md'), 'utf8');
+
+  assert.equal(result.status, 0);
+  assert.ok(readme.includes('managed by git-tasks'));
+  assert.ok(readme.includes('wiki/raw/'));
+  assert.ok(rawReadme.includes('unprocessed inputs'));
+  assert.ok(processedReadme.includes('append-only'));
+});
+
+test('init fails outside a git repository root', () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-init-invalid-'));
+  const result = run(['init'], { cwd });
+
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes('git-tasks init must be run from the root of a git repository.'));
 });
 
 test('epic create --help shows options', () => {
@@ -165,31 +189,18 @@ test('agent skill is packaged in the installable repo layout', () => {
   assert.ok(skill.includes('hidden: true'));
 });
 
-test('wiki init creates git-tasks-branded README content', () => {
-  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-'));
-  const result = run(['wiki', 'init'], { cwd });
-  const readme = fs.readFileSync(join(cwd, 'wiki', 'README.md'), 'utf8');
-  const rawReadme = fs.readFileSync(join(cwd, 'wiki', 'raw', 'README.md'), 'utf8');
-  const processedReadme = fs.readFileSync(join(cwd, 'wiki', 'processed', 'README.md'), 'utf8');
-
-  assert.equal(result.status, 0);
-  assert.ok(readme.includes('managed by git-tasks'));
-  assert.ok(readme.includes('wiki/raw/'));
-  assert.ok(rawReadme.includes('unprocessed inputs'));
-  assert.ok(processedReadme.includes('append-only'));
-});
-
 test('wiki list warns with the renamed command when wiki is missing', () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-list-'));
   const result = run(['wiki', 'list'], { cwd });
 
   assert.equal(result.status, 0);
-  assert.ok(result.stdout.includes('Run: git-tasks wiki init'));
+  assert.ok(result.stdout.includes('Run: git-tasks init'));
 });
 
 test('wiki list shows nested raw and processed markdown files', () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-list-'));
-  run(['wiki', 'init'], { cwd });
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+  run(['init'], { cwd });
   fs.writeFileSync(join(cwd, 'wiki', 'raw', 'meeting-notes.md'), '# Raw\n');
   fs.writeFileSync(join(cwd, 'wiki', 'processed', '2026-04-23T09-54-02Z-plan.md'), '# Processed\n');
 
@@ -202,7 +213,8 @@ test('wiki list shows nested raw and processed markdown files', () => {
 
 test('wiki show rejects paths outside wiki/', () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-show-'));
-  run(['wiki', 'init'], { cwd });
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+  run(['init'], { cwd });
 
   const result = run(['wiki', 'show', '../package'], { cwd });
 

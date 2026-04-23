@@ -21,7 +21,7 @@ gh pr list
 
 - Ensure `gh auth status` succeeds.
 - Prefer `--short` output unless you need full issue bodies or comments.
-- Run `git-tasks wiki init` in the repository if `wiki/` is missing.
+- Run `git-tasks init` at the repository root if `wiki/` is missing.
 - Start with `git-tasks overview --depth 2` before drilling into individual issues.
 - Install the skill anywhere with `npx @atena-reply/git-tasks skill install --target all`.
 
@@ -34,7 +34,7 @@ gh pr list
 
 ## Recommended workflow
 
-1. Initialize and use the wiki as the audit source of truth with `git-tasks wiki init`.
+1. Initialize and use the wiki as the audit source of truth with `git-tasks init`.
 2. If the user gives you notes in chat, dump them first into `wiki/raw/`.
 3. If the user already dropped notes into the wiki, read from `wiki/raw/` first.
 4. Before decomposing work or changing epics, sprints, or stories, write a new timestamped markdown file into `wiki/processed/` summarizing the interpreted knowledge and intended PM changes.
@@ -81,7 +81,7 @@ git-tasks story update <n> -a <username>
 ### Wiki
 
 ```bash
-git-tasks wiki init
+git-tasks init
 git-tasks wiki list
 git-tasks wiki show raw/<filename>
 git-tasks wiki show processed/<timestamped-filename>
