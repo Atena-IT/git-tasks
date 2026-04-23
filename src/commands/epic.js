@@ -10,10 +10,10 @@ export function makeEpicCommand() {
   epic
     .command('create <title>')
     .description('Create a new epic')
-    .option('-d, --description <text>', 'Epic description')
-    .option('-p, --points <n>', 'Story points', '0')
-    .option('--start <date>', 'Start date')
-    .option('--end <date>', 'End date')
+    .requiredOption('-d, --description <text>', 'Epic description')
+    .requiredOption('-p, --points <n>', 'Story points')
+    .requiredOption('--start <date>', 'Start date')
+    .requiredOption('--end <date>', 'End date')
     .option('-a, --assignee <user>', 'Assignee username')
     .action(async (title, opts) => {
       try {

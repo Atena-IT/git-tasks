@@ -10,11 +10,11 @@ export function makeSprintCommand() {
   sprint
     .command('create <title>')
     .description('Create a new sprint')
-    .option('-e, --epic <epic-number>', 'Parent epic number')
-    .option('-d, --description <text>', 'Sprint description')
-    .option('-p, --points <n>', 'Story points', '0')
-    .option('--start <date>', 'Start date')
-    .option('--end <date>', 'End date')
+    .requiredOption('-e, --epic <epic-number>', 'Parent epic number')
+    .requiredOption('-d, --description <text>', 'Sprint description')
+    .requiredOption('-p, --points <n>', 'Story points')
+    .requiredOption('--start <date>', 'Start date')
+    .requiredOption('--end <date>', 'End date')
     .option('-a, --assignee <user>', 'Assignee username')
     .action(async (title, opts) => {
       try {

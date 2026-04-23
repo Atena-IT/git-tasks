@@ -79,7 +79,7 @@ Labels created automatically: `epic`, `sprint`, `user-story`
 
 ### Epics
 ```bash
-git-tasks epic create "Title" [-d <desc>] [-p <points>] [--start <date>] [--end <date>] [-a <user>]
+git-tasks epic create "Title" -d <desc> -p <points> --start <date> --end <date> [-a <user>]
 git-tasks epic list [--state open|closed|all] [--short]
 git-tasks epic show <number> [--comments]
 git-tasks epic update <number> [--title <text>] [--points <n>] [--status open|closed]
@@ -87,7 +87,7 @@ git-tasks epic update <number> [--title <text>] [--points <n>] [--status open|cl
 
 ### Sprints
 ```bash
-git-tasks sprint create "Title" [-e <epic>] [-d <desc>] [-p <points>] [--start <date>] [--end <date>]
+git-tasks sprint create "Title" -e <epic> -d <desc> -p <points> --start <date> --end <date> [-a <user>]
 git-tasks sprint list [--epic <n>] [--state open|closed|all] [--short]
 git-tasks sprint show <number> [--comments]
 git-tasks sprint update <number> [--title <text>] [--status open|closed]
@@ -95,7 +95,7 @@ git-tasks sprint update <number> [--title <text>] [--status open|closed]
 
 ### User Stories
 ```bash
-git-tasks story create "Title" [-s <sprint>] [-e <epic>] [-p <points>] [--priority low|medium|high]
+git-tasks story create "Title" -s <sprint> -e <epic> -d <desc> -p <points> --priority low|medium|high [-a <user>]
 git-tasks story list [--sprint <n>] [--epic <n>] [--assignee <user>] [--state open|closed|all] [--short]
 git-tasks story show <number> [--comments]
 git-tasks story update <number> [--status open|in-progress|ready-for-review|closed] [--reviewer <user>]
@@ -111,12 +111,14 @@ git-tasks overview [--depth 1|2|3] [--state open|closed|all]
 ```bash
 git-tasks wiki init
 git-tasks wiki list
-git-tasks wiki show <file>
+git-tasks wiki show raw/<file>
+git-tasks wiki show processed/<timestamped-file>
 ```
 
 ## Agent-friendly usage
 
 ```bash
+git-tasks wiki init
 git-tasks overview --depth 2
 git-tasks epic list --short
 git-tasks story list --short --sprint 5
@@ -124,10 +126,27 @@ git-tasks story update 42 --status in-progress
 git-tasks story update 42 --status ready-for-review --reviewer octocat
 ```
 
+## AI-native planning granularity
+
+- **Stories** are agent-sized atomic slices: independently executable work that should usually take from a few hours up to one day.
+- **Sprints** are short execution windows and should usually stay within three days.
+- **Epics** are the largest planning bucket and should usually stay within two weeks.
+- Always keep dependencies explicit: stories belong to a sprint and epic, sprints belong to an epic, and each item should carry enough metadata to be auditable without extra chat context.
+
+## Wiki-first audit workflow
+
+- Initialize the wiki once with `git-tasks wiki init`.
+- Put raw human inputs in `wiki/raw/` exactly as they arrive: meeting notes, pasted chats, TODO dumps, transcripts, or user scratch notes.
+- Before decomposing work or changing the backlog, write a new timestamped file into `wiki/processed/` that captures the interpreted knowledge and intended planning change.
+- Treat `wiki/processed/` as append-only. Use timestamp-prefixed filenames so entries remain ordered by arrival time and can serve as an audit trail.
+- Then update epics, sprints, and stories using the processed wiki entry as the source of truth.
+
 ## Task lifecycle automation
 
 - `story update --status in-progress` keeps the story open, updates its workflow status, and ensures a draft PR exists for the current branch.
-- `story update --status ready-for-review` promotes the linked draft PR to ready for review and can request reviewers via `--reviewer` or `GIT_TASKS_REVIEWERS=user1,user2`.
+- Agents should pick up stories in an isolated worktree with a named branch and attached draft PR so execution stays reviewable and self-contained.
+- While work is in progress, keep the draft PR and `wiki/processed/` updated with units of work so the story history is auditable.
+- `story update --status ready-for-review` promotes the linked draft PR to ready for review and now requires reviewers via `--reviewer` or `GIT_TASKS_REVIEWERS=user1,user2` (set this to the repository owner when that is your default reviewer).
 - `story update --status closed` closes the story and automatically closes the parent sprint and epic when all of their children are closed.
 - `sprint update --status closed` also cascades closure up to the parent epic when appropriate.
 

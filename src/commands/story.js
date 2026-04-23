@@ -15,12 +15,12 @@ export function makeStoryCommand() {
   story
     .command('create <title>')
     .description('Create a new user story')
-    .option('-s, --sprint <sprint-number>', 'Parent sprint number')
-    .option('-e, --epic <epic-number>', 'Parent epic number')
-    .option('-d, --description <text>', 'Story description')
-    .option('-p, --points <n>', 'Story points', '1')
+    .requiredOption('-s, --sprint <sprint-number>', 'Parent sprint number')
+    .requiredOption('-e, --epic <epic-number>', 'Parent epic number')
+    .requiredOption('-d, --description <text>', 'Story description')
+    .requiredOption('-p, --points <n>', 'Story points')
     .option('-a, --assignee <user>', 'Assignee username')
-    .option('--priority <level>', 'Priority: low, medium, high', 'medium')
+    .requiredOption('--priority <level>', 'Priority: low, medium, high')
     .action(async (title, opts) => {
       try {
         const backend = getBackend();

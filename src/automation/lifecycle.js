@@ -117,27 +117,32 @@ export async function applyStoryLifecycle(number, { status, reviewers = [], base
     throw new Error(`Issue #${number} is not a user story.`);
   }
 
+  const normalizedStatus = normalizeLifecycleStatus(status);
+  const reviewerList = normalizedStatus === 'ready-for-review'
+    ? mergeReviewerSources(reviewers)
+    : [];
+  if (normalizedStatus === 'ready-for-review' && !reviewerList.length) {
+    throw new Error('Marking a story ready-for-review requires at least one reviewer. Pass --reviewer or set GIT_TASKS_REVIEWERS.');
+  }
+
   const edit = buildLifecycleEdit(story, status);
   let pullRequest = null;
 
-  if (edit.state === 'open' && normalizeLifecycleStatus(status) !== 'open') {
+  if (edit.state === 'open' && normalizedStatus !== 'open') {
     pullRequest = await ensureStoryPullRequest(story, { backend, base, head });
     edit.body = setMetadataField(edit.body, 'Linked PR', pullRequest.url);
 
-    if (normalizeLifecycleStatus(status) === 'ready-for-review') {
+    if (normalizedStatus === 'ready-for-review') {
       if (pullRequest.isDraft) {
         pullRequest = await backend.markPullRequestReady(pullRequest.number);
       }
 
-      const reviewerList = mergeReviewerSources(reviewers);
-      if (reviewerList.length) {
-        pullRequest = await backend.requestPullRequestReview(pullRequest.number, { reviewers: reviewerList });
-      }
+      pullRequest = await backend.requestPullRequestReview(pullRequest.number, { reviewers: reviewerList });
     }
   }
 
   const updatedStory = await backend.editIssue(number, edit);
-  const closedParents = normalizeLifecycleStatus(status) === 'closed'
+  const closedParents = normalizedStatus === 'closed'
     ? await cascadeCloseParentsFromIssue(updatedStory, 'story', { backend })
     : [];
 

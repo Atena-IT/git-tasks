@@ -94,6 +94,24 @@ test('story create --help shows --sprint and --epic options', () => {
   assert.ok(result.stdout.includes('--priority'));
 });
 
+test('epic create requires explicit planning metadata', () => {
+  const result = run(['epic', 'create', 'Ship auth', '-d', 'desc', '-p', '5', '--start', '2026-04-23']);
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes('--end'));
+});
+
+test('sprint create requires a parent epic', () => {
+  const result = run(['sprint', 'create', 'Sprint 1', '-d', 'desc', '-p', '3', '--start', '2026-04-23', '--end', '2026-04-25']);
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes('--epic'));
+});
+
+test('story create requires sprint, epic, description, points, and priority', () => {
+  const result = run(['story', 'create', 'Implement login', '-s', '7', '-e', '3', '-d', 'desc', '-p', '2']);
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes('--priority'));
+});
+
 test('story update --help shows lifecycle and reviewer options', () => {
   const result = run(['story', 'update', '--help']);
   assert.equal(result.status, 0);
@@ -140,6 +158,9 @@ test('agent skill is packaged in the installable repo layout', () => {
 
   assert.match(skill, /^---\r?\nname: git-tasks\r?\ndescription:/);
   assert.ok(skill.includes('git-tasks overview --depth 2'));
+  assert.ok(skill.includes('few hours to one day'));
+  assert.ok(skill.includes('wiki/raw/'));
+  assert.ok(skill.includes('append-only'));
   assert.ok(skill.includes('allowed-tools:'));
   assert.ok(skill.includes('hidden: true'));
 });
@@ -148,10 +169,14 @@ test('wiki init creates git-tasks-branded README content', () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-'));
   const result = run(['wiki', 'init'], { cwd });
   const readme = fs.readFileSync(join(cwd, 'wiki', 'README.md'), 'utf8');
+  const rawReadme = fs.readFileSync(join(cwd, 'wiki', 'raw', 'README.md'), 'utf8');
+  const processedReadme = fs.readFileSync(join(cwd, 'wiki', 'processed', 'README.md'), 'utf8');
 
   assert.equal(result.status, 0);
   assert.ok(readme.includes('managed by git-tasks'));
-  assert.ok(readme.includes('git-tasks wiki list'));
+  assert.ok(readme.includes('wiki/raw/'));
+  assert.ok(rawReadme.includes('unprocessed inputs'));
+  assert.ok(processedReadme.includes('append-only'));
 });
 
 test('wiki list warns with the renamed command when wiki is missing', () => {
@@ -160,6 +185,29 @@ test('wiki list warns with the renamed command when wiki is missing', () => {
 
   assert.equal(result.status, 0);
   assert.ok(result.stdout.includes('Run: git-tasks wiki init'));
+});
+
+test('wiki list shows nested raw and processed markdown files', () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-list-'));
+  run(['wiki', 'init'], { cwd });
+  fs.writeFileSync(join(cwd, 'wiki', 'raw', 'meeting-notes.md'), '# Raw\n');
+  fs.writeFileSync(join(cwd, 'wiki', 'processed', '2026-04-23T09-54-02Z-plan.md'), '# Processed\n');
+
+  const result = run(['wiki', 'list'], { cwd });
+
+  assert.equal(result.status, 0);
+  assert.ok(result.stdout.includes('raw/meeting-notes.md'));
+  assert.ok(result.stdout.includes('processed/2026-04-23T09-54-02Z-plan.md'));
+});
+
+test('wiki show rejects paths outside wiki/', () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-show-'));
+  run(['wiki', 'init'], { cwd });
+
+  const result = run(['wiki', 'show', '../package'], { cwd });
+
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes('Wiki paths must stay inside the wiki/ directory.'));
 });
 
 test('parseIssueTitle correctly identifies epics', async () => {
@@ -253,6 +301,20 @@ test('metadata helpers normalize lifecycle status and reviewer lists', async () 
   assert.equal(normalizeLifecycleStatus('running'), 'in-progress');
   assert.equal(normalizeLifecycleStatus('ready'), 'ready-for-review');
   assert.deepEqual(parseReviewerList(['octocat,hubot', 'octocat']), ['octocat', 'hubot']);
+});
+
+test('applyStoryLifecycle requires reviewers before ready-for-review', async () => {
+  const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
+  const backend = {
+    async viewIssue() {
+      return { number: 42, title: 'story(#7): Implement login', state: 'OPEN', body: '## Metadata\n- **Status:** open\n', labels: [{ name: 'user-story' }, { name: 'status:open' }] };
+    },
+  };
+
+  await assert.rejects(
+    applyStoryLifecycle(42, { status: 'ready-for-review', backend }),
+    /requires at least one reviewer/,
+  );
 });
 
 test('buildLifecycleEdit updates labels and state consistently', async () => {
@@ -353,7 +415,7 @@ process.exit(1);
   fs.chmodSync(ghPath, 0o755);
 
   try {
-    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3'], {
+    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3', '--start', '2026-01-01', '--end', '2026-01-14'], {
       cwd,
       env: { PATH: `${cwd}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}` },
     });
