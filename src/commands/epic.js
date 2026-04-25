@@ -18,11 +18,34 @@ function appendSectionListItem(body = '', heading, value) {
     return `${body.trimEnd()}\n\n## ${heading}\n${nextItem}\n`;
   }
 
-  const items = match[2]
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const items = [];
+  let inComment = false;
+  for (const rawLine of match[2].split('\n')) {
+    let line = rawLine;
+    if (inComment) {
+      const commentEnd = line.indexOf('-->');
+      if (commentEnd === -1) {
+        continue;
+      }
+      line = line.slice(commentEnd + 3);
+      inComment = false;
+    }
+    while (true) {
+      const commentStart = line.indexOf('<!--');
+      if (commentStart === -1) break;
+      const commentEnd = line.indexOf('-->', commentStart + 4);
+      if (commentEnd === -1) {
+        line = line.slice(0, commentStart);
+        inComment = true;
+        break;
+      }
+      line = `${line.slice(0, commentStart)}${line.slice(commentEnd + 3)}`;
+    }
+    const trimmed = line.trim();
+    if (trimmed) {
+      items.push(trimmed);
+    }
+  }
   const nextItems = items.includes(nextItem) ? items : [...items, nextItem];
 
   return body.replace(sectionPattern, `${match[1]}${nextItems.join('\n')}\n${match[3]}`);

@@ -746,6 +746,7 @@ test('applyStoryLifecycle preserves non-managed existing story PR bodies', async
 
 test('applyStoryLifecycle resyncs managed PR bodies after a story rename', async () => {
   const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
+  const previousTitle = 'story(#7): Implement login';
   const story = {
     number: 42,
     title: 'story(#7): Implement passwordless login',
@@ -756,7 +757,7 @@ test('applyStoryLifecycle resyncs managed PR bodies after a story rename', async
   const basePullRequest = {
     number: 88,
     title: story.title,
-    body: '## Summary\nImplements story(#7): Implement login\n\n## Linked story\nRefs #42\n',
+    body: `## Summary\nImplements ${previousTitle}\n\n## Linked story\nRefs #42\n`,
     url: 'https://example.com/pull/88',
     isDraft: true,
   };
