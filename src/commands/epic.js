@@ -3,18 +3,14 @@ import getBackend from '../backends/index.js';
 import { buildLifecycleEdit } from '../automation/lifecycle.js';
 import { epicTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
-import { getMetadataField, parseMetadataList, setMetadataField, setMetadataListField } from '../utils/metadata.js';
+import { escapeRegex, getMetadataField, parseMetadataList, setMetadataField, setMetadataListField } from '../utils/metadata.js';
 
 function collectValues(value, previous = []) {
   return previous.concat(value);
 }
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function appendSectionListItem(body = '', heading, value) {
-  const sectionPattern = new RegExp(`(## ${escapeRegExp(heading)}\\n)([\\s\\S]*?)(\\n## |$)`);
+  const sectionPattern = new RegExp(`(## ${escapeRegex(heading)}\\n)([\\s\\S]*?)(\\n## |$)`);
   const match = body.match(sectionPattern);
   const nextItem = `- ${value}`;
 

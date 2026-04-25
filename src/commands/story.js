@@ -105,7 +105,15 @@ export function makeStoryCommand() {
     .action(async (number, opts) => {
       try {
         const requestedKnowledgeLinks = parseMetadataList(opts.knowledge);
-        if (!opts.status && !opts.title && !opts.sprint && !opts.points && !opts.priority && !opts.assignee && !requestedKnowledgeLinks.length) {
+        const hasRequestedEdits = [
+          opts.status,
+          opts.title,
+          opts.sprint,
+          opts.points,
+          opts.priority,
+          opts.assignee,
+        ].some(Boolean) || requestedKnowledgeLinks.length > 0;
+        if (!hasRequestedEdits) {
           printError('Pass at least one update option.');
           return;
         }

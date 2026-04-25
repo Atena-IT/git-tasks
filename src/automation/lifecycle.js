@@ -97,7 +97,7 @@ function normalizePullRequestBody(body = '') {
 function isManagedPullRequestBody(body, story) {
   const normalized = normalizePullRequestBody(body);
   const managedBodyPattern = new RegExp(
-    `^## Summary\\nImplements .+\\n\\n## Linked story\\nRefs #${String(story.number)}(?:\\n\\n## Knowledge context\\n(?:- .+\\n?)*)?$`,
+    `^## Summary\\nImplements story\\([^)]+\\): .+\\n\\n## Linked story\\nRefs #${String(story.number)}(?:\\n\\n## Knowledge context\\n(?:- .+\\n?)*)?$`,
   );
 
   return managedBodyPattern.test(normalized);
