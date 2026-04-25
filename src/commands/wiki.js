@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { existsSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, mkdirSync, realpathSync, writeFileSync } from 'fs';
 import { dirname, join, relative, resolve, isAbsolute } from 'path';
 import { printError } from '../utils/format.js';
 import chalk from 'chalk';
@@ -103,6 +103,14 @@ function resolveWikiFilePath(filename, rootDir = process.cwd()) {
   const filePath = resolve(wikiRoot, requested);
   if (!isWikiPathWithinRoot(wikiRoot, filePath)) {
     throw new Error('Wiki paths must stay inside the wiki/ directory.');
+  }
+  if (existsSync(wikiRoot) && existsSync(filePath)) {
+    const realWikiRoot = realpathSync(wikiRoot);
+    const realFilePath = realpathSync(filePath);
+    if (!isWikiPathWithinRoot(realWikiRoot, realFilePath)) {
+      throw new Error('Wiki paths must stay inside the wiki/ directory.');
+    }
+    return realFilePath;
   }
   return filePath;
 }

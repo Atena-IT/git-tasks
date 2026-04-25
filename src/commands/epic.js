@@ -3,10 +3,32 @@ import getBackend from '../backends/index.js';
 import { buildLifecycleEdit } from '../automation/lifecycle.js';
 import { epicTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
-import { getMetadataField, parseMetadataList, setMetadataListField } from '../utils/metadata.js';
+import { getMetadataField, parseMetadataList, setMetadataField, setMetadataListField } from '../utils/metadata.js';
 
 function collectValues(value, previous = []) {
   return previous.concat(value);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function appendSectionListItem(body = '', heading, value) {
+  const sectionPattern = new RegExp(`(## ${escapeRegExp(heading)}\\n)([\\s\\S]*?)(\\n## |$)`);
+  const match = body.match(sectionPattern);
+  const nextItem = `- ${value}`;
+
+  if (!match) {
+    return `${body.trimEnd()}\n\n## ${heading}\n${nextItem}\n`;
+  }
+
+  const items = match[2]
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('<!--'));
+  const nextItems = items.includes(nextItem) ? items : [...items, nextItem];
+
+  return body.replace(sectionPattern, `${match[1]}${nextItems.join('\n')}\n${match[3]}`);
 }
 
 export function makeEpicCommand() {
@@ -94,9 +116,21 @@ export function makeEpicCommand() {
           Object.assign(editOpts, lifecycleEdit);
           nextBody = lifecycleEdit.body;
         }
+        if (opts.points) {
+          nextBody = setMetadataField(nextBody, 'Story Points', opts.points);
+          editOpts.body = nextBody;
+        }
+        if (opts.addBlocker) {
+          nextBody = appendSectionListItem(nextBody, 'Dependencies', `#${opts.addBlocker}`);
+          editOpts.body = nextBody;
+        }
         if (opts.knowledge.length) {
           const knowledgeLinks = parseMetadataList(getMetadataField(nextBody, 'Knowledge Links'), opts.knowledge);
-          editOpts.body = setMetadataListField(nextBody, 'Knowledge Links', knowledgeLinks);
+          nextBody = setMetadataListField(nextBody, 'Knowledge Links', knowledgeLinks);
+          editOpts.body = nextBody;
+        }
+        if (!Object.keys(editOpts).length) {
+          printError('Pass at least one update option.');
         }
 
         const issue = await backend.editIssue(number, editOpts);

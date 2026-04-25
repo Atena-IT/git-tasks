@@ -94,16 +94,10 @@ function normalizePullRequestBody(body = '') {
   return String(body).trimEnd();
 }
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function isManagedPullRequestBody(body, story) {
   const normalized = normalizePullRequestBody(body);
-  const titlePattern = escapeRegExp(story.title);
-  const numberPattern = escapeRegExp(String(story.number));
   const managedBodyPattern = new RegExp(
-    `^## Summary\\nImplements ${titlePattern}\\n\\n## Linked story\\nRefs #${numberPattern}(?:\\n\\n## Knowledge context\\n(?:- .+\\n?)*)?$`,
+    `^## Summary\\nImplements .+\\n\\n## Linked story\\nRefs #${String(story.number)}(?:\\n\\n## Knowledge context\\n(?:- .+\\n?)*)?$`,
   );
 
   return managedBodyPattern.test(normalized);

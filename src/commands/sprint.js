@@ -2,8 +2,8 @@ import { Command } from 'commander';
 import getBackend from '../backends/index.js';
 import { buildLifecycleEdit, cascadeCloseParentsFromIssue } from '../automation/lifecycle.js';
 import { sprintTemplate } from '../utils/templates.js';
-import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
-import { getMetadataField, parseMetadataList, setMetadataListField } from '../utils/metadata.js';
+import { formatIssueList, formatIssueDetail, parseIssueTitle, printSuccess, printError } from '../utils/format.js';
+import { getMetadataField, parseMetadataList, setMetadataField, setMetadataListField } from '../utils/metadata.js';
 
 function collectValues(value, previous = []) {
   return previous.concat(value);
@@ -95,18 +95,33 @@ export function makeSprintCommand() {
         const currentIssue = await backend.viewIssue(number);
         const editOpts = {};
         let nextBody = currentIssue.body;
-        if (opts.title) {
-          const epicPart = opts.epic ? `(#${opts.epic})` : '';
-          editOpts.title = `sprint${epicPart}: ${opts.title}`;
+        const parsedTitle = parseIssueTitle(currentIssue.title);
+        if (opts.title || opts.epic) {
+          const epicRef = opts.epic ? `#${opts.epic}` : parsedTitle.ref;
+          const title = opts.title || parsedTitle.title;
+          const epicPart = epicRef ? `(${epicRef})` : '';
+          editOpts.title = `sprint${epicPart}: ${title}`;
         }
         if (opts.status) {
           const lifecycleEdit = buildLifecycleEdit(currentIssue, opts.status);
           Object.assign(editOpts, lifecycleEdit);
           nextBody = lifecycleEdit.body;
         }
+        if (opts.epic) {
+          nextBody = setMetadataField(nextBody, 'Epic', `#${opts.epic}`);
+          editOpts.body = nextBody;
+        }
+        if (opts.points) {
+          nextBody = setMetadataField(nextBody, 'Story Points', opts.points);
+          editOpts.body = nextBody;
+        }
         if (opts.knowledge.length) {
           const knowledgeLinks = parseMetadataList(getMetadataField(nextBody, 'Knowledge Links'), opts.knowledge);
-          editOpts.body = setMetadataListField(nextBody, 'Knowledge Links', knowledgeLinks);
+          nextBody = setMetadataListField(nextBody, 'Knowledge Links', knowledgeLinks);
+          editOpts.body = nextBody;
+        }
+        if (!Object.keys(editOpts).length) {
+          printError('Pass at least one update option.');
         }
 
         const issue = await backend.editIssue(number, editOpts);

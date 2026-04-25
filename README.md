@@ -95,7 +95,7 @@ git-tasks sprint update <number> [--title <text>] [--status open|closed]
 
 ### User Stories
 ```bash
-git-tasks story create "Title" -s <sprint> -e <epic> -d <desc> -p <points> --priority low|medium|high [-a <user>]
+git-tasks story create "Title" -s <sprint> -e <epic> -d <desc> -p <points> --priority low|medium|high [-k <wiki/knowledge/file.md>] [-a <user>]
 git-tasks story list [--sprint <n>] [--epic <n>] [--assignee <user>] [--state open|closed|all] [--short]
 git-tasks story show <number> [--comments]
 git-tasks story update <number> [--status open|in-progress|ready-for-review|closed] [--reviewer <user>]

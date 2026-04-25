@@ -326,6 +326,27 @@ test('wiki show rejects paths outside wiki/', async () => {
   }
 });
 
+test('wiki show rejects symlink escapes outside wiki/', { skip: process.platform === 'win32' }, async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-link-'));
+  const outsideDir = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-outside-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+  fs.writeFileSync(join(outsideDir, 'secret.md'), '# Secret\n');
+
+  try {
+    run(['init'], { cwd });
+    await rm(join(cwd, 'wiki', 'knowledge'), { recursive: true, force: true });
+    fs.symlinkSync(outsideDir, join(cwd, 'wiki', 'knowledge'));
+
+    const result = run(['wiki', 'show', 'knowledge/secret'], { cwd });
+
+    assert.equal(result.status, 1);
+    assert.ok(result.stderr.includes('Wiki paths must stay inside the wiki/ directory.'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+    await rm(outsideDir, { recursive: true, force: true });
+  }
+});
+
 test('isWikiPathWithinRoot rejects win32 cross-drive paths', async () => {
   const { isWikiPathWithinRoot } = await import('../src/commands/wiki.js');
 
@@ -723,6 +744,55 @@ test('applyStoryLifecycle preserves non-managed existing story PR bodies', async
   assert.ok(issue.body.includes('wiki/knowledge/auth-plan.md'));
 });
 
+test('applyStoryLifecycle resyncs managed PR bodies after a story rename', async () => {
+  const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
+  const story = {
+    number: 42,
+    title: 'story(#7): Implement passwordless login',
+    state: 'OPEN',
+    body: '## Metadata\n- **Status:** open\n',
+    labels: [{ name: 'user-story' }, { name: 'status:open' }],
+  };
+  const basePullRequest = {
+    number: 88,
+    title: story.title,
+    body: '## Summary\nImplements story(#7): Implement login\n\n## Linked story\nRefs #42\n',
+    url: 'https://example.com/pull/88',
+    isDraft: true,
+  };
+  let editedPullRequestBody = '';
+
+  const backend = {
+    async viewIssue() {
+      return structuredClone(story);
+    },
+    async listPullRequests() {
+      return [structuredClone(basePullRequest)];
+    },
+    async editPullRequest(number, { body }) {
+      editedPullRequestBody = body;
+      return { ...basePullRequest, number, body };
+    },
+    async editIssue(number, edits) {
+      return {
+        ...story,
+        number,
+        body: edits.body,
+        state: 'OPEN',
+        labels: [{ name: 'user-story' }, { name: 'status:in-progress' }],
+      };
+    },
+  };
+
+  const { pullRequest } = await applyStoryLifecycle(42, {
+    status: 'in-progress',
+    backend,
+  });
+
+  assert.ok(editedPullRequestBody.includes('Implements story(#7): Implement passwordless login'));
+  assert.equal(pullRequest.number, 88);
+});
+
 test('applyStoryLifecycle merges knowledge links before creating a story PR', async () => {
   const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
   const story = {
@@ -840,6 +910,19 @@ test('cascadeCloseParentsFromIssue closes sprint and epic when all children are 
   assert.equal(issues.get(1).state, 'CLOSED');
 });
 
+test('story update rejects no-op edits before invoking gh', async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-story-update-noop-'));
+
+  try {
+    const result = run(['story', 'update', '42'], { cwd });
+
+    assert.equal(result.status, 1);
+    assert.ok(result.stderr.includes('Pass at least one update option.'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
 test('epic create forwards knowledge links through gh issue create output flow', { skip: process.platform === 'win32' }, async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-gh-'));
   spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
@@ -904,6 +987,110 @@ process.exit(1);
     assert.ok(bodyArg.includes('Knowledge Links'));
     assert.ok(bodyArg.includes('wiki/knowledge/auth-plan.md'));
     assert.deepEqual(issueView, ['issue', 'view', '123', '--json', 'number,title,state,body,labels,assignees,createdAt,updatedAt,url']);
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('epic update applies points and blockers', { skip: process.platform === 'win32' }, async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-epic-update-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+  const ghLog = join(cwd, 'gh.log');
+  const ghScriptPath = join(cwd, 'gh.js');
+  const ghPath = join(cwd, 'gh');
+  fs.writeFileSync(ghScriptPath, `#!/usr/bin/env node
+import fs from 'node:fs';
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(args) + '\\n');
+if (args[0] === 'issue' && args[1] === 'view') {
+  process.stdout.write(JSON.stringify({
+    number: 12,
+    url: 'https://github.com/Atena-IT/git-tasks/issues/12',
+    title: 'epic: Ship auth',
+    state: 'OPEN',
+    body: '## Description\\nTest\\n\\n## Metadata\\n- **Status:** open\\n- **Story Points:** 3\\n- **Knowledge Links:** \\n\\n## Dependencies\\n<!-- List blocking epics/issues -->\\n\\n## Notes\\n',
+    labels: [{ name: 'epic' }, { name: 'status:open' }],
+    assignees: [],
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z'
+  }));
+  process.exit(0);
+}
+if (args[0] === 'issue' && args[1] === 'edit') {
+  process.exit(0);
+}
+console.error('Unexpected gh invocation: ' + args.join(' '));
+process.exit(1);
+`);
+  fs.writeFileSync(ghPath, `#!/usr/bin/env sh\nnode "$(dirname "$0")/gh.js" "$@"\n`);
+  fs.chmodSync(ghPath, 0o755);
+
+  try {
+    const result = run(['epic', 'update', '12', '--points', '5', '--add-blocker', '99'], {
+      cwd,
+      env: { PATH: `${cwd}:${process.env.PATH}` },
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const commands = fs.readFileSync(ghLog, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    const issueEdit = commands.find((args) => args[0] === 'issue' && args[1] === 'edit');
+    const bodyArg = issueEdit[issueEdit.indexOf('--body') + 1];
+
+    assert.ok(bodyArg.includes('- **Story Points:** 5'));
+    assert.ok(bodyArg.includes('## Dependencies\n- #99'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('sprint update applies epic and points without changing the raw title', { skip: process.platform === 'win32' }, async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-sprint-update-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+  const ghLog = join(cwd, 'gh.log');
+  const ghScriptPath = join(cwd, 'gh.js');
+  const ghPath = join(cwd, 'gh');
+  fs.writeFileSync(ghScriptPath, `#!/usr/bin/env node
+import fs from 'node:fs';
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(args) + '\\n');
+if (args[0] === 'issue' && args[1] === 'view') {
+  process.stdout.write(JSON.stringify({
+    number: 7,
+    url: 'https://github.com/Atena-IT/git-tasks/issues/7',
+    title: 'sprint(#3): Auth Sprint 1',
+    state: 'OPEN',
+    body: '## Description\\nTest\\n\\n## Metadata\\n- **Status:** open\\n- **Story Points:** 3\\n- **Epic:** #3\\n- **Knowledge Links:** \\n\\n## Notes\\n',
+    labels: [{ name: 'sprint' }, { name: 'status:open' }],
+    assignees: [],
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z'
+  }));
+  process.exit(0);
+}
+if (args[0] === 'issue' && args[1] === 'edit') {
+  process.exit(0);
+}
+console.error('Unexpected gh invocation: ' + args.join(' '));
+process.exit(1);
+`);
+  fs.writeFileSync(ghPath, `#!/usr/bin/env sh\nnode "$(dirname "$0")/gh.js" "$@"\n`);
+  fs.chmodSync(ghPath, 0o755);
+
+  try {
+    const result = run(['sprint', 'update', '7', '--epic', '8', '--points', '5'], {
+      cwd,
+      env: { PATH: `${cwd}:${process.env.PATH}` },
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const commands = fs.readFileSync(ghLog, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    const issueEdit = commands.find((args) => args[0] === 'issue' && args[1] === 'edit');
+    const titleArg = issueEdit[issueEdit.indexOf('--title') + 1];
+    const bodyArg = issueEdit[issueEdit.indexOf('--body') + 1];
+
+    assert.equal(titleArg, 'sprint(#8): Auth Sprint 1');
+    assert.ok(bodyArg.includes('- **Story Points:** 5'));
+    assert.ok(bodyArg.includes('- **Epic:** #8'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }

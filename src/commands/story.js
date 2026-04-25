@@ -1,9 +1,9 @@
 import { Command } from 'commander';
 import getBackend from '../backends/index.js';
 import { applyStoryLifecycle } from '../automation/lifecycle.js';
-import { getMetadataField, parseMetadataList, parseReviewerList, setMetadataListField } from '../utils/metadata.js';
+import { getMetadataField, parseMetadataList, parseReviewerList, setMetadataField, setMetadataListField } from '../utils/metadata.js';
 import { storyTemplate } from '../utils/templates.js';
-import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
+import { formatIssueList, formatIssueDetail, parseIssueTitle, printSuccess, printError } from '../utils/format.js';
 
 function collectValues(value, previous = []) {
   return previous.concat(value);
@@ -104,34 +104,58 @@ export function makeStoryCommand() {
     .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (number, opts) => {
       try {
-        const backend = getBackend();
-        const editOpts = {};
         const requestedKnowledgeLinks = parseMetadataList(opts.knowledge);
-        if (opts.title) {
-          const sprintPart = opts.sprint ? `(#${opts.sprint})` : '';
-          editOpts.title = `story${sprintPart}: ${opts.title}`;
+        if (!opts.status && !opts.title && !opts.sprint && !opts.points && !opts.priority && !opts.assignee && !requestedKnowledgeLinks.length) {
+          printError('Pass at least one update option.');
         }
-        if (opts.assignee) editOpts.addAssignees = [opts.assignee];
+        const backend = getBackend();
+        const currentIssue = await backend.viewIssue(number);
+        const editOpts = {};
+        const parsedTitle = parseIssueTitle(currentIssue.title);
+        let nextBody = currentIssue.body;
+        if (opts.title || opts.sprint) {
+          const sprintRef = opts.sprint ? `#${opts.sprint}` : parsedTitle.ref;
+          const title = opts.title || parsedTitle.title;
+          const sprintPart = sprintRef ? `(${sprintRef})` : '';
+          editOpts.title = `story${sprintPart}: ${title}`;
+        }
+        if (opts.points) {
+          nextBody = setMetadataField(nextBody, 'Story Points', opts.points);
+          editOpts.body = nextBody;
+        }
+        if (opts.sprint) {
+          nextBody = setMetadataField(nextBody, 'Sprint', `#${opts.sprint}`);
+          editOpts.body = nextBody;
+        }
+        if (opts.priority) {
+          nextBody = setMetadataField(nextBody, 'Priority', opts.priority);
+          editOpts.body = nextBody;
+        }
+        if (opts.assignee) {
+          editOpts.addAssignees = [opts.assignee];
+          nextBody = setMetadataField(nextBody, 'Assignee', opts.assignee);
+          editOpts.body = nextBody;
+        }
+        if (requestedKnowledgeLinks.length) {
+          const knowledgeLinks = parseMetadataList(getMetadataField(nextBody, 'Knowledge Links'), requestedKnowledgeLinks);
+          nextBody = setMetadataListField(nextBody, 'Knowledge Links', knowledgeLinks);
+          editOpts.body = nextBody;
+        }
+
+        const hasDirectEdits = Object.keys(editOpts).length > 0;
         let issue;
+        if (hasDirectEdits) {
+          issue = await backend.editIssue(number, editOpts);
+        }
         if (opts.status) {
           ({ issue } = await applyStoryLifecycle(number, {
             status: opts.status,
             reviewers: parseReviewerList(opts.reviewer),
-            knowledgeLinks: requestedKnowledgeLinks,
+            knowledgeLinks: hasDirectEdits ? [] : requestedKnowledgeLinks,
             base: opts.base,
             head: opts.head,
             backend,
           }));
-          if (Object.keys(editOpts).length) {
-            issue = await backend.editIssue(number, editOpts);
-          }
-        } else {
-          const currentIssue = await backend.viewIssue(number);
-          if (requestedKnowledgeLinks.length) {
-            const knowledgeLinks = parseMetadataList(getMetadataField(currentIssue.body, 'Knowledge Links'), requestedKnowledgeLinks);
-            editOpts.body = setMetadataListField(currentIssue.body, 'Knowledge Links', knowledgeLinks);
-          }
-          issue = await backend.editIssue(number, editOpts);
         }
         printSuccess(`Updated user story #${issue.number}`);
       } catch (err) {
