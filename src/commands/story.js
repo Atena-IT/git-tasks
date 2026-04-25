@@ -107,6 +107,7 @@ export function makeStoryCommand() {
         const requestedKnowledgeLinks = parseMetadataList(opts.knowledge);
         if (!opts.status && !opts.title && !opts.sprint && !opts.points && !opts.priority && !opts.assignee && !requestedKnowledgeLinks.length) {
           printError('Pass at least one update option.');
+          return;
         }
         const backend = getBackend();
         const currentIssue = await backend.viewIssue(number);

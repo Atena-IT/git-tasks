@@ -131,6 +131,7 @@ export function makeEpicCommand() {
         }
         if (!Object.keys(editOpts).length) {
           printError('Pass at least one update option.');
+          return;
         }
 
         const issue = await backend.editIssue(number, editOpts);
