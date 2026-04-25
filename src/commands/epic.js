@@ -19,9 +19,10 @@ function appendSectionListItem(body = '', heading, value) {
   }
 
   const items = match[2]
+    .replace(/<!--[\s\S]*?-->/g, '')
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('<!--'));
+    .filter(Boolean);
   const nextItems = items.includes(nextItem) ? items : [...items, nextItem];
 
   return body.replace(sectionPattern, `${match[1]}${nextItems.join('\n')}\n${match[3]}`);
