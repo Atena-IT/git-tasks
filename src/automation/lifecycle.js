@@ -138,6 +138,14 @@ async function syncPullRequestContext(story, pullRequest, { backend }) {
   return backend.editPullRequest(pullRequest.number, { body });
 }
 
+export async function syncExistingStoryPullRequestContext(story, { backend = getBackend() } = {}) {
+  const existing = await findStoryPullRequest(story, { backend });
+  if (!existing) {
+    return null;
+  }
+  return syncPullRequestContext(story, existing, { backend });
+}
+
 export async function ensureStoryPullRequest(story, { backend = getBackend(), base, head } = {}) {
   const existing = await findStoryPullRequest(story, { backend });
   if (existing) return syncPullRequestContext(story, existing, { backend });

@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import getBackend from '../backends/index.js';
-import { applyStoryLifecycle } from '../automation/lifecycle.js';
+import { applyStoryLifecycle, syncExistingStoryPullRequestContext } from '../automation/lifecycle.js';
 import { getMetadataField, parseMetadataList, parseReviewerList, setMetadataField, setMetadataListField } from '../utils/metadata.js';
 import { storyTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, parseIssueTitle, printSuccess, printError } from '../utils/format.js';
@@ -155,6 +155,9 @@ export function makeStoryCommand() {
         let issue;
         if (hasDirectEdits) {
           issue = await backend.editIssue(number, editOpts);
+          if (!opts.status && (editOpts.title || requestedKnowledgeLinks.length)) {
+            await syncExistingStoryPullRequestContext(issue, { backend });
+          }
         }
         if (opts.status) {
           ({ issue } = await applyStoryLifecycle(number, {

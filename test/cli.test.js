@@ -692,6 +692,44 @@ test('applyStoryLifecycle syncs knowledge links into an existing story PR', asyn
   assert.ok(issue.body.includes('wiki/knowledge/auth-plan.md'));
 });
 
+test('syncExistingStoryPullRequestContext syncs knowledge links without a lifecycle transition', async () => {
+  const { syncExistingStoryPullRequestContext } = await import('../src/automation/lifecycle.js');
+  const story = {
+    number: 42,
+    title: 'story(#7): Implement login',
+    state: 'OPEN',
+    body: '## Metadata\n- **Status:** open\n- **Knowledge Links:** wiki/knowledge/auth-plan.md\n- **Linked PR:** https://example.com/pull/88\n',
+    labels: [{ name: 'user-story' }, { name: 'status:open' }],
+  };
+  const basePullRequest = {
+    number: 88,
+    title: story.title,
+    body: `## Summary\nImplements ${story.title}\n\n## Linked story\nRefs #${story.number}\n`,
+    url: 'https://example.com/pull/88',
+    isDraft: true,
+  };
+  let editedPullRequestBody = '';
+
+  const backend = {
+    async viewPullRequest() {
+      return structuredClone(basePullRequest);
+    },
+    async listPullRequests() {
+      throw new Error('listPullRequests should not be called when Linked PR metadata is present');
+    },
+    async editPullRequest(number, { body }) {
+      editedPullRequestBody = body;
+      return { ...basePullRequest, number, body };
+    },
+  };
+
+  const pullRequest = await syncExistingStoryPullRequestContext(story, { backend });
+
+  assert.equal(pullRequest.number, 88);
+  assert.ok(editedPullRequestBody.includes('## Knowledge context'));
+  assert.ok(editedPullRequestBody.includes('wiki/knowledge/auth-plan.md'));
+});
+
 test('applyStoryLifecycle preserves non-managed existing story PR bodies', async () => {
   const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
   const story = {
@@ -1157,6 +1195,144 @@ process.exit(1);
 
     assert.ok(issueCreate, 'expected gh issue create to be called');
     assert.ok(!issueCreate.includes('--label'), 'gh issue create should skip labels when they cannot be ensured');
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('epic create keeps labels when discovery is unavailable but issue creation accepts them', { skip: process.platform === 'win32' }, async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-gh-labels-optimistic-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+  const ghLog = join(cwd, 'gh.log');
+  const ghScriptPath = join(cwd, 'gh.js');
+  const ghPath = join(cwd, process.platform === 'win32' ? 'gh.cmd' : 'gh');
+  fs.writeFileSync(ghScriptPath, `#!/usr/bin/env node
+import fs from 'node:fs';
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(args) + '\\n');
+if (args[0] === 'label' && args[1] === 'list') {
+  console.error('failed to list labels');
+  process.exit(1);
+}
+if (args[0] === 'label' && args[1] === 'create') {
+  console.error('HTTP 403: Resource not accessible by integration');
+  process.exit(1);
+}
+if (args[0] === 'issue' && args[1] === 'create') {
+  process.stdout.write('https://github.com/Atena-IT/git-tasks/issues/654\\n');
+  process.exit(0);
+}
+if (args[0] === 'issue' && args[1] === 'view') {
+  process.stdout.write(JSON.stringify({
+    number: 654,
+    url: 'https://github.com/Atena-IT/git-tasks/issues/654',
+    title: 'epic: Ship auth',
+    state: 'OPEN',
+    body: 'Test body',
+    labels: [{ name: 'epic' }, { name: 'status:open' }],
+    assignees: [],
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z'
+  }));
+  process.exit(0);
+}
+console.error('Unexpected gh invocation: ' + args.join(' '));
+process.exit(1);
+`);
+  if (process.platform === 'win32') {
+    fs.writeFileSync(ghPath, `@echo off\r\nnode "%~dp0\\gh.js" %*\r\n`);
+  } else {
+    fs.writeFileSync(ghPath, `#!/usr/bin/env sh\nnode "$(dirname "$0")/gh.js" "$@"\n`);
+    fs.chmodSync(ghPath, 0o755);
+  }
+
+  try {
+    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3', '--start', '2026-01-01', '--end', '2026-01-14'], {
+      cwd,
+      env: { PATH: `${cwd}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}` },
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const commands = fs.readFileSync(ghLog, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    const issueCreate = commands.find((args) => args[0] === 'issue' && args[1] === 'create');
+
+    assert.ok(issueCreate.includes('--label'));
+    assert.ok(issueCreate.includes('epic'));
+    assert.ok(issueCreate.includes('status:open'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('epic create retries without labels when optimistic labels are unknown', { skip: process.platform === 'win32' }, async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-gh-labels-retry-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+  const ghLog = join(cwd, 'gh.log');
+  const ghScriptPath = join(cwd, 'gh.js');
+  const ghPath = join(cwd, process.platform === 'win32' ? 'gh.cmd' : 'gh');
+  fs.writeFileSync(ghScriptPath, `#!/usr/bin/env node
+import fs from 'node:fs';
+const args = process.argv.slice(2);
+let issueCreateAttempts = 0;
+if (fs.existsSync(${JSON.stringify(join(cwd, 'attempts.txt'))})) {
+  issueCreateAttempts = Number(fs.readFileSync(${JSON.stringify(join(cwd, 'attempts.txt'))}, 'utf8'));
+}
+fs.appendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(args) + '\\n');
+if (args[0] === 'label' && args[1] === 'list') {
+  console.error('failed to list labels');
+  process.exit(1);
+}
+if (args[0] === 'label' && args[1] === 'create') {
+  console.error('HTTP 403: Resource not accessible by integration');
+  process.exit(1);
+}
+if (args[0] === 'issue' && args[1] === 'create') {
+  issueCreateAttempts += 1;
+  fs.writeFileSync(${JSON.stringify(join(cwd, 'attempts.txt'))}, String(issueCreateAttempts));
+  if (issueCreateAttempts === 1) {
+    console.error('could not add label "epic": label does not exist');
+    process.exit(1);
+  }
+  process.stdout.write('https://github.com/Atena-IT/git-tasks/issues/655\\n');
+  process.exit(0);
+}
+if (args[0] === 'issue' && args[1] === 'view') {
+  process.stdout.write(JSON.stringify({
+    number: 655,
+    url: 'https://github.com/Atena-IT/git-tasks/issues/655',
+    title: 'epic: Ship auth',
+    state: 'OPEN',
+    body: 'Test body',
+    labels: [],
+    assignees: [],
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z'
+  }));
+  process.exit(0);
+}
+console.error('Unexpected gh invocation: ' + args.join(' '));
+process.exit(1);
+`);
+  if (process.platform === 'win32') {
+    fs.writeFileSync(ghPath, `@echo off\r\nnode "%~dp0\\gh.js" %*\r\n`);
+  } else {
+    fs.writeFileSync(ghPath, `#!/usr/bin/env sh\nnode "$(dirname "$0")/gh.js" "$@"\n`);
+    fs.chmodSync(ghPath, 0o755);
+  }
+
+  try {
+    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3', '--start', '2026-01-01', '--end', '2026-01-14'], {
+      cwd,
+      env: { PATH: `${cwd}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}` },
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const commands = fs.readFileSync(ghLog, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    const issueCreates = commands.filter((args) => args[0] === 'issue' && args[1] === 'create');
+
+    assert.equal(issueCreates.length, 2);
+    assert.ok(issueCreates[0].includes('--label'));
+    assert.ok(!issueCreates[1].includes('--label'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }

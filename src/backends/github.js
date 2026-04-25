@@ -69,6 +69,9 @@ const LABEL_CONFIG = {
 
 function ensureLabels(labels) {
   const existingLabels = listExistingLabels();
+  if (existingLabels === null) {
+    return [...labels];
+  }
   const ensuredLabels = [];
   for (const label of labels) {
     if (existingLabels?.has(label)) {
@@ -83,15 +86,30 @@ function ensureLabels(labels) {
   return ensuredLabels;
 }
 
+function buildIssueCreateArgs({ title, body, labels = [], assignees = [] }) {
+  const args = ['issue', 'create', '--title', title, '--body', body];
+  for (const label of labels) args.push('--label', label);
+  for (const assignee of assignees) args.push('--assignee', assignee);
+  return args;
+}
+
+function isUnknownLabelError(error) {
+  return /label .*does not exist|unknown label|could not add label/i.test(error?.message || '');
+}
+
 // ─── Issues ──────────────────────────────────────────────────────────────────
 
 export function createIssue({ title, body, labels = [], assignees = [] }) {
   const ensuredLabels = ensureLabels(labels);
-  const args = ['issue', 'create', '--title', title, '--body', body];
-  for (const l of ensuredLabels) args.push('--label', l);
-  for (const a of assignees) args.push('--assignee', a);
-
-  const output = runGh(args);
+  let output;
+  try {
+    output = runGh(buildIssueCreateArgs({ title, body, labels: ensuredLabels, assignees }));
+  } catch (error) {
+    if (!ensuredLabels.length || !isUnknownLabelError(error)) {
+      throw error;
+    }
+    output = runGh(buildIssueCreateArgs({ title, body, assignees }));
+  }
   return viewIssue(extractIssueNumberFromOutput(output));
 }
 
