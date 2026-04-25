@@ -1,55 +1,136 @@
 import { Command } from 'commander';
-import { existsSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import { printSuccess, printError } from '../utils/format.js';
+import { existsSync, readdirSync, readFileSync, mkdirSync, realpathSync, writeFileSync } from 'fs';
+import { dirname, join, relative, resolve, isAbsolute } from 'path';
+import { printError } from '../utils/format.js';
+import { resolveRepositoryRoot } from '../utils/config.js';
 import chalk from 'chalk';
 
 const WIKI_DIR = 'wiki';
+const INBOX_DIR = 'inbox';
+const KNOWLEDGE_DIR = 'knowledge';
 
 const WIKI_README = `# Project Wiki
 
-This wiki contains project documentation managed by git-tasks.
+This wiki contains project knowledge managed by git-tasks.
 
 ## Structure
 
-- Add markdown files to this directory for project documentation.
-- Use \`git-tasks wiki list\` to list files.
-- Use \`git-tasks wiki show <filename>\` to view a file.
+- \`wiki/inbox/\` is for direct human or system inputs such as meeting notes, transcripts, pasted chats, and scratch notes.
+- \`wiki/knowledge/\` is for structured knowledge nodes whose semantic type lives in frontmatter.
+- \`wiki/knowledge/index.md\` is the append-only encyclopedia index that AI agents should scan first before opening individual knowledge files.
+- Keep legacy \`wiki/raw/\` and \`wiki/processed/\` folders readable if they already exist, but write new material into \`wiki/inbox/\` and \`wiki/knowledge/\`.
+- Use \`git-tasks wiki list\` to list files recursively.
+- Use \`git-tasks wiki show <filename>\` to view a file, including nested paths such as \`inbox/discovery.md\` or \`knowledge/index.md\`.
 `;
 
-export function makeWikiCommand() {
-  const wiki = new Command('wiki').description('Manage local wiki files');
+const INBOX_WIKI_README = `# Inbox
 
-  wiki
-    .command('init')
-    .description('Initialize the wiki/ directory with a README.md')
-    .action(() => {
-      try {
-        if (!existsSync(WIKI_DIR)) {
-          mkdirSync(WIKI_DIR, { recursive: true });
-        }
-        const readmePath = join(WIKI_DIR, 'README.md');
-        if (!existsSync(readmePath)) {
-          writeFileSync(readmePath, WIKI_README, 'utf8');
-          printSuccess(`Created ${readmePath}`);
-        } else {
-          console.log(chalk.yellow(`Wiki already initialized at ${readmePath}`));
-        }
-      } catch (err) {
-        printError(err.message);
-      }
-    });
+Use this space for unmodified incoming material from humans or external systems.
+
+- Drop notes exactly as they arrive.
+- Preserve original wording when possible.
+- Inbox entries alone should not trigger issue, branch, or pull-request changes until the knowledge has been compiled into \`wiki/knowledge/\`.
+`;
+
+const KNOWLEDGE_WIKI_README = `# Knowledge
+
+Use this space for durable knowledge nodes managed by AI and humans.
+
+- Keep files flat in this directory; use frontmatter \`type\` rather than subdirectories to express whether a node is a decision, plan, constraint, observation, procedure, or something else.
+- Use dash-case frontmatter keys such as \`timestamp\`, \`issue-refs\`, and \`neighbours\`.
+- Update or create knowledge nodes when durable understanding changes.
+- Update \`index.md\` whenever knowledge changes so agents can navigate the wiki efficiently.
+- Legacy \`processed/\` content may still be read, but new durable knowledge belongs here.
+`;
+
+const KNOWLEDGE_INDEX = `# Knowledge Index
+
+Append new knowledge entries in arrival order using this format:
+
+- \`<timestamp> | <type> | [Title](file.md) — short description\`
+
+Agents should scan this index first, then open only the relevant knowledge nodes.
+`;
+
+function listMarkdownFiles(dir, prefix = '') {
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const entryPath = join(dir, entry.name);
+    const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      files.push(...listMarkdownFiles(entryPath, relativePath));
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      files.push(relativePath);
+    }
+  }
+  return files.sort((left, right) => left.localeCompare(right));
+}
+
+function getWikiRoot(rootDir = process.cwd()) {
+  const repoRoot = resolveRepositoryRoot(rootDir) || resolve(rootDir);
+  return resolve(repoRoot, WIKI_DIR);
+}
+
+export function initializeWiki(rootDir = process.cwd()) {
+  const wikiRoot = getWikiRoot(rootDir);
+  const files = [
+    [join(wikiRoot, 'README.md'), WIKI_README],
+    [join(wikiRoot, INBOX_DIR, 'README.md'), INBOX_WIKI_README],
+    [join(wikiRoot, KNOWLEDGE_DIR, 'README.md'), KNOWLEDGE_WIKI_README],
+    [join(wikiRoot, KNOWLEDGE_DIR, 'index.md'), KNOWLEDGE_INDEX],
+  ];
+  const createdPaths = [];
+
+  mkdirSync(wikiRoot, { recursive: true });
+  for (const [filePath, contents] of files) {
+    mkdirSync(dirname(filePath), { recursive: true });
+    if (!existsSync(filePath)) {
+      writeFileSync(filePath, contents, 'utf8');
+      createdPaths.push(filePath);
+    }
+  }
+
+  return { createdPaths, wikiRoot };
+}
+
+export function isWikiPathWithinRoot(wikiRoot, filePath, pathModule = { relative, isAbsolute }) {
+  const relativePath = pathModule.relative(wikiRoot, filePath);
+  return Boolean(relativePath) && !relativePath.startsWith('..') && !pathModule.isAbsolute(relativePath);
+}
+
+function resolveWikiFilePath(filename, rootDir = process.cwd()) {
+  const wikiRoot = getWikiRoot(rootDir);
+  const requested = filename.endsWith('.md') ? filename : `${filename}.md`;
+  const filePath = resolve(wikiRoot, requested);
+  if (!isWikiPathWithinRoot(wikiRoot, filePath)) {
+    throw new Error('Wiki paths must stay inside the wiki/ directory.');
+  }
+  if (existsSync(wikiRoot) && existsSync(filePath)) {
+    const realWikiRoot = realpathSync(wikiRoot);
+    const realFilePath = realpathSync(filePath);
+    if (!isWikiPathWithinRoot(realWikiRoot, realFilePath)) {
+      throw new Error('Wiki paths must stay inside the wiki/ directory.');
+    }
+    return realFilePath;
+  }
+  return filePath;
+}
+
+export function makeWikiCommand() {
+  const wiki = new Command('wiki').description('Manage local wiki files for inbox inputs and structured knowledge');
 
   wiki
     .command('list')
-    .description('List wiki files')
+    .description('List wiki markdown files recursively')
     .action(() => {
       try {
-        if (!existsSync(WIKI_DIR)) {
-          console.log(chalk.yellow('Wiki not initialized. Run: git-tasks wiki init'));
+        const wikiRoot = getWikiRoot();
+        if (!existsSync(wikiRoot)) {
+          console.log(chalk.yellow('Wiki not initialized. Run: git-tasks init'));
           return;
         }
-        const files = readdirSync(WIKI_DIR).filter(f => f.endsWith('.md'));
+        const files = listMarkdownFiles(wikiRoot);
         if (!files.length) {
           console.log(chalk.gray('No wiki files found.'));
         } else {
@@ -62,10 +143,10 @@ export function makeWikiCommand() {
 
   wiki
     .command('show <filename>')
-    .description('Show the content of a wiki file')
+    .description('Show the content of a wiki file, including nested inbox/ or knowledge/ paths')
     .action((filename) => {
       try {
-        const filePath = join(WIKI_DIR, filename.endsWith('.md') ? filename : `${filename}.md`);
+        const filePath = resolveWikiFilePath(filename);
         if (!existsSync(filePath)) {
           printError(`Wiki file not found: ${filePath}`);
           return;

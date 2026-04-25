@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node --test test/cli.test.js",
     "test:coverage": "node --test --experimental-test-coverage test/cli.test.js",
+    "test:evals": "node --test test/evals/eval.js",
     "pack:dry-run": "npm pack --dry-run"
   },
   "files": [

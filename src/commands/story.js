@@ -1,9 +1,9 @@
 import { Command } from 'commander';
 import getBackend from '../backends/index.js';
-import { applyStoryLifecycle } from '../automation/lifecycle.js';
-import { parseReviewerList } from '../utils/metadata.js';
+import { applyStoryLifecycle, syncExistingStoryPullRequestContext } from '../automation/lifecycle.js';
+import { getMetadataField, parseMetadataList, parseReviewerList, setMetadataField, setMetadataListField } from '../utils/metadata.js';
 import { storyTemplate } from '../utils/templates.js';
-import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
+import { formatIssueList, formatIssueDetail, parseIssueTitle, printSuccess, printError } from '../utils/format.js';
 
 function collectValues(value, previous = []) {
   return previous.concat(value);
@@ -15,12 +15,13 @@ export function makeStoryCommand() {
   story
     .command('create <title>')
     .description('Create a new user story')
-    .option('-s, --sprint <sprint-number>', 'Parent sprint number')
-    .option('-e, --epic <epic-number>', 'Parent epic number')
-    .option('-d, --description <text>', 'Story description')
-    .option('-p, --points <n>', 'Story points', '1')
+    .requiredOption('-s, --sprint <sprint-number>', 'Parent sprint number')
+    .requiredOption('-e, --epic <epic-number>', 'Parent epic number')
+    .requiredOption('-d, --description <text>', 'Story description')
+    .requiredOption('-p, --points <n>', 'Story points')
     .option('-a, --assignee <user>', 'Assignee username')
-    .option('--priority <level>', 'Priority: low, medium, high', 'medium')
+    .requiredOption('--priority <level>', 'Priority: low, medium, high')
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (title, opts) => {
       try {
         const backend = getBackend();
@@ -31,6 +32,7 @@ export function makeStoryCommand() {
           points: opts.points,
           assignee: opts.assignee || '',
           priority: opts.priority,
+          knowledgeLinks: parseMetadataList(opts.knowledge),
         });
         const sprintRef = opts.sprint ? `#${opts.sprint}` : '';
         const prefix = sprintRef ? `story(${sprintRef})` : 'story';
@@ -99,29 +101,73 @@ export function makeStoryCommand() {
     .option('--base <branch>', 'Base branch to use when creating a lifecycle pull request')
     .option('--head <branch>', 'Head branch to use when creating a lifecycle pull request')
     .option('-r, --reviewer <user>', 'Reviewer to request when marking ready-for-review', collectValues, [])
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (number, opts) => {
       try {
-        const backend = getBackend();
-        const editOpts = {};
-        if (opts.title) {
-          const sprintPart = opts.sprint ? `(#${opts.sprint})` : '';
-          editOpts.title = `story${sprintPart}: ${opts.title}`;
+        const requestedKnowledgeLinks = parseMetadataList(opts.knowledge);
+        const hasRequestedEdits = [
+          opts.status,
+          opts.title,
+          opts.sprint,
+          opts.points,
+          opts.priority,
+          opts.assignee,
+        ].some(Boolean) || requestedKnowledgeLinks.length > 0;
+        if (!hasRequestedEdits) {
+          printError('Pass at least one update option.');
+          return;
         }
-        if (opts.assignee) editOpts.addAssignees = [opts.assignee];
+        const backend = getBackend();
+        const currentIssue = await backend.viewIssue(number);
+        const editOpts = {};
+        const parsedTitle = parseIssueTitle(currentIssue.title);
+        let nextBody = currentIssue.body;
+        if (opts.title || opts.sprint) {
+          const sprintRef = opts.sprint ? `#${opts.sprint}` : parsedTitle.ref;
+          const title = opts.title || parsedTitle.title;
+          const sprintPart = sprintRef ? `(${sprintRef})` : '';
+          editOpts.title = `story${sprintPart}: ${title}`;
+        }
+        if (opts.points) {
+          nextBody = setMetadataField(nextBody, 'Story Points', opts.points);
+          editOpts.body = nextBody;
+        }
+        if (opts.sprint) {
+          nextBody = setMetadataField(nextBody, 'Sprint', `#${opts.sprint}`);
+          editOpts.body = nextBody;
+        }
+        if (opts.priority) {
+          nextBody = setMetadataField(nextBody, 'Priority', opts.priority);
+          editOpts.body = nextBody;
+        }
+        if (opts.assignee) {
+          editOpts.addAssignees = [opts.assignee];
+          nextBody = setMetadataField(nextBody, 'Assignee', opts.assignee);
+          editOpts.body = nextBody;
+        }
+        if (requestedKnowledgeLinks.length) {
+          const knowledgeLinks = parseMetadataList(getMetadataField(nextBody, 'Knowledge Links'), requestedKnowledgeLinks);
+          nextBody = setMetadataListField(nextBody, 'Knowledge Links', knowledgeLinks);
+          editOpts.body = nextBody;
+        }
+
+        const hasDirectEdits = Object.keys(editOpts).length > 0;
         let issue;
+        if (hasDirectEdits) {
+          issue = await backend.editIssue(number, editOpts);
+          if (!opts.status && (editOpts.title || requestedKnowledgeLinks.length)) {
+            await syncExistingStoryPullRequestContext(issue, { backend });
+          }
+        }
         if (opts.status) {
           ({ issue } = await applyStoryLifecycle(number, {
             status: opts.status,
             reviewers: parseReviewerList(opts.reviewer),
+            knowledgeLinks: hasDirectEdits ? [] : requestedKnowledgeLinks,
             base: opts.base,
             head: opts.head,
             backend,
           }));
-          if (Object.keys(editOpts).length) {
-            issue = await backend.editIssue(number, editOpts);
-          }
-        } else {
-          issue = await backend.editIssue(number, editOpts);
         }
         printSuccess(`Updated user story #${issue.number}`);
       } catch (err) {

@@ -36,19 +36,24 @@ function extractIssueNumberFromOutput(output) {
   return match[1];
 }
 
+function listExistingLabels() {
+  try {
+    const labels = runGhJSON(['label', 'list', '--json', 'name']);
+    return new Set(labels.map((label) => label.name));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Ensure a label exists in the repo; create it if missing.
  */
 function ensureLabel(name, color, description) {
   try {
-    runGh(['label', 'list', '--json', 'name', '--jq', `.[].name`]);
-  } catch {
-    // ignore
-  }
-  try {
     runGh(['label', 'create', name, '--color', color, '--description', description, '--force']);
+    return true;
   } catch {
-    // label may already exist
+    return false;
   }
 }
 
@@ -63,21 +68,48 @@ const LABEL_CONFIG = {
 };
 
 function ensureLabels(labels) {
-  for (const label of labels) {
-    const cfg = LABEL_CONFIG[label] || { color: 'ededed', description: '' };
-    ensureLabel(label, cfg.color, cfg.description);
+  const existingLabels = listExistingLabels();
+  if (existingLabels === null) {
+    return [...labels];
   }
+  const ensuredLabels = [];
+  for (const label of labels) {
+    if (existingLabels?.has(label)) {
+      ensuredLabels.push(label);
+      continue;
+    }
+    const cfg = LABEL_CONFIG[label] || { color: 'ededed', description: '' };
+    if (ensureLabel(label, cfg.color, cfg.description)) {
+      ensuredLabels.push(label);
+    }
+  }
+  return ensuredLabels;
+}
+
+function buildIssueCreateArgs({ title, body, labels = [], assignees = [] }) {
+  const args = ['issue', 'create', '--title', title, '--body', body];
+  for (const label of labels) args.push('--label', label);
+  for (const assignee of assignees) args.push('--assignee', assignee);
+  return args;
+}
+
+function isUnknownLabelError(error) {
+  return /label .*does not exist|unknown label|could not add label/i.test(error?.message || '');
 }
 
 // ─── Issues ──────────────────────────────────────────────────────────────────
 
 export function createIssue({ title, body, labels = [], assignees = [] }) {
-  ensureLabels(labels);
-  const args = ['issue', 'create', '--title', title, '--body', body];
-  for (const l of labels) args.push('--label', l);
-  for (const a of assignees) args.push('--assignee', a);
-
-  const output = runGh(args);
+  const ensuredLabels = ensureLabels(labels);
+  let output;
+  try {
+    output = runGh(buildIssueCreateArgs({ title, body, labels: ensuredLabels, assignees }));
+  } catch (error) {
+    if (!ensuredLabels.length || !isUnknownLabelError(error)) {
+      throw error;
+    }
+    output = runGh(buildIssueCreateArgs({ title, body, assignees }));
+  }
   return viewIssue(extractIssueNumberFromOutput(output));
 }
 
@@ -160,6 +192,15 @@ export function createPullRequest({ title, body, base, head, draft = false }) {
   return viewPullRequest(match[1]);
 }
 
+export function editPullRequest(number, { title, body, base } = {}) {
+  const args = ['pr', 'edit', String(number)];
+  if (title) args.push('--title', title);
+  if (body !== undefined) args.push('--body', body);
+  if (base) args.push('--base', base);
+  runGh(args);
+  return viewPullRequest(number);
+}
+
 export function markPullRequestReady(number) {
   runGh(['pr', 'ready', String(number)]);
   return viewPullRequest(number);
@@ -184,6 +225,7 @@ const githubBackend = {
   listPullRequests,
   viewPullRequest,
   createPullRequest,
+  editPullRequest,
   markPullRequestReady,
   requestPullRequestReview,
 };

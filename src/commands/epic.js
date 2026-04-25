@@ -3,6 +3,53 @@ import getBackend from '../backends/index.js';
 import { buildLifecycleEdit } from '../automation/lifecycle.js';
 import { epicTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
+import { escapeRegex, getMetadataField, parseMetadataList, setMetadataField, setMetadataListField } from '../utils/metadata.js';
+
+function collectValues(value, previous = []) {
+  return previous.concat(value);
+}
+
+function appendSectionListItem(body = '', heading, value) {
+  const sectionPattern = new RegExp(`(## ${escapeRegex(heading)}\\n)([\\s\\S]*?)(\\n## |$)`);
+  const match = body.match(sectionPattern);
+  const nextItem = `- ${value}`;
+
+  if (!match) {
+    return `${body.trimEnd()}\n\n## ${heading}\n${nextItem}\n`;
+  }
+
+  const items = [];
+  let inComment = false;
+  for (const rawLine of match[2].split('\n')) {
+    let line = rawLine;
+    if (inComment) {
+      const commentEnd = line.indexOf('-->');
+      if (commentEnd === -1) {
+        continue;
+      }
+      line = line.slice(commentEnd + 3);
+      inComment = false;
+    }
+    while (true) {
+      const commentStart = line.indexOf('<!--');
+      if (commentStart === -1) break;
+      const commentEnd = line.indexOf('-->', commentStart + 4);
+      if (commentEnd === -1) {
+        line = line.slice(0, commentStart);
+        inComment = true;
+        break;
+      }
+      line = `${line.slice(0, commentStart)}${line.slice(commentEnd + 3)}`;
+    }
+    const trimmed = line.trim();
+    if (trimmed) {
+      items.push(trimmed);
+    }
+  }
+  const nextItems = items.includes(nextItem) ? items : [...items, nextItem];
+
+  return body.replace(sectionPattern, `${match[1]}${nextItems.join('\n')}\n${match[3]}`);
+}
 
 export function makeEpicCommand() {
   const epic = new Command('epic').description('Manage epics');
@@ -10,11 +57,12 @@ export function makeEpicCommand() {
   epic
     .command('create <title>')
     .description('Create a new epic')
-    .option('-d, --description <text>', 'Epic description')
-    .option('-p, --points <n>', 'Story points', '0')
-    .option('--start <date>', 'Start date')
-    .option('--end <date>', 'End date')
+    .requiredOption('-d, --description <text>', 'Epic description')
+    .requiredOption('-p, --points <n>', 'Story points')
+    .requiredOption('--start <date>', 'Start date')
+    .requiredOption('--end <date>', 'End date')
     .option('-a, --assignee <user>', 'Assignee username')
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (title, opts) => {
       try {
         const backend = getBackend();
@@ -24,6 +72,7 @@ export function makeEpicCommand() {
           start: opts.start || '',
           end: opts.end || '',
           owner: opts.assignee || '',
+          knowledgeLinks: parseMetadataList(opts.knowledge),
         });
         const issue = await backend.createIssue({
           title: `epic: ${title}`,
@@ -73,13 +122,38 @@ export function makeEpicCommand() {
     .option('--points <n>', 'Story points')
     .option('--status <state>', 'open or closed')
     .option('--add-blocker <issue-number>', 'Add a blocking issue reference')
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (number, opts) => {
       try {
         const backend = getBackend();
         const currentIssue = await backend.viewIssue(number);
         const editOpts = {};
+        let nextBody = currentIssue.body;
+
         if (opts.title) editOpts.title = `epic: ${opts.title}`;
-        if (opts.status) Object.assign(editOpts, buildLifecycleEdit(currentIssue, opts.status));
+        if (opts.status) {
+          const lifecycleEdit = buildLifecycleEdit(currentIssue, opts.status);
+          Object.assign(editOpts, lifecycleEdit);
+          nextBody = lifecycleEdit.body;
+        }
+        if (opts.points) {
+          nextBody = setMetadataField(nextBody, 'Story Points', opts.points);
+          editOpts.body = nextBody;
+        }
+        if (opts.addBlocker) {
+          nextBody = appendSectionListItem(nextBody, 'Dependencies', `#${opts.addBlocker}`);
+          editOpts.body = nextBody;
+        }
+        if (opts.knowledge.length) {
+          const knowledgeLinks = parseMetadataList(getMetadataField(nextBody, 'Knowledge Links'), opts.knowledge);
+          nextBody = setMetadataListField(nextBody, 'Knowledge Links', knowledgeLinks);
+          editOpts.body = nextBody;
+        }
+        if (!Object.keys(editOpts).length) {
+          printError('Pass at least one update option.');
+          return;
+        }
+
         const issue = await backend.editIssue(number, editOpts);
         printSuccess(`Updated epic #${issue.number}`);
       } catch (err) {
