@@ -316,8 +316,10 @@ test('wiki list resolves the repo-root wiki from nested directories', async () =
   spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
 
   try {
-    run(['init'], { cwd });
+    const initResult = run(['init'], { cwd });
+    assert.equal(initResult.status, 0, initResult.stderr);
     fs.mkdirSync(nestedDir, { recursive: true });
+    assert.equal(fs.existsSync(join(cwd, 'wiki', 'knowledge', 'index.md')), true);
     fs.writeFileSync(join(cwd, 'wiki', 'knowledge', 'auth-plan.md'), '# Knowledge\n');
 
     const result = run(['wiki', 'list'], { cwd: nestedDir });
