@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { existsSync, readdirSync, readFileSync, mkdirSync, realpathSync, writeFileSync } from 'fs';
 import { dirname, join, relative, resolve, isAbsolute } from 'path';
 import { printError } from '../utils/format.js';
+import { resolveRepositoryRoot } from '../utils/config.js';
 import chalk from 'chalk';
 
 const WIKI_DIR = 'wiki';
@@ -67,7 +68,8 @@ function listMarkdownFiles(dir, prefix = '') {
 }
 
 function getWikiRoot(rootDir = process.cwd()) {
-  return resolve(rootDir, WIKI_DIR);
+  const repoRoot = resolveRepositoryRoot(rootDir) || resolve(rootDir);
+  return resolve(repoRoot, WIKI_DIR);
 }
 
 export function initializeWiki(rootDir = process.cwd()) {
@@ -123,11 +125,12 @@ export function makeWikiCommand() {
     .description('List wiki markdown files recursively')
     .action(() => {
       try {
-        if (!existsSync(WIKI_DIR)) {
+        const wikiRoot = getWikiRoot();
+        if (!existsSync(wikiRoot)) {
           console.log(chalk.yellow('Wiki not initialized. Run: git-tasks init'));
           return;
         }
-        const files = listMarkdownFiles(WIKI_DIR);
+        const files = listMarkdownFiles(wikiRoot);
         if (!files.length) {
           console.log(chalk.gray('No wiki files found.'));
         } else {

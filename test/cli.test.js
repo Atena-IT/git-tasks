@@ -310,6 +310,26 @@ test('wiki list shows nested inbox and knowledge markdown files', async () => {
   }
 });
 
+test('wiki list resolves the repo-root wiki from nested directories', async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-list-nested-'));
+  const nestedDir = join(cwd, 'packages', 'cli');
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+
+  try {
+    run(['init'], { cwd });
+    fs.mkdirSync(nestedDir, { recursive: true });
+    fs.writeFileSync(join(cwd, 'wiki', 'knowledge', 'auth-plan.md'), '# Knowledge\n');
+
+    const result = run(['wiki', 'list'], { cwd: nestedDir });
+
+    assert.equal(result.status, 0);
+    assert.ok(result.stdout.includes('knowledge/index.md'));
+    assert.ok(result.stdout.includes('knowledge/auth-plan.md'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
 test('wiki show rejects paths outside wiki/', async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-show-'));
   spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
@@ -321,6 +341,25 @@ test('wiki show rejects paths outside wiki/', async () => {
 
     assert.equal(result.status, 1);
     assert.ok(result.stderr.includes('Wiki paths must stay inside the wiki/ directory.'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('wiki show resolves repo-root files from nested directories', async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-show-nested-'));
+  const nestedDir = join(cwd, 'packages', 'cli');
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+
+  try {
+    run(['init'], { cwd });
+    fs.mkdirSync(nestedDir, { recursive: true });
+    fs.writeFileSync(join(cwd, 'wiki', 'knowledge', 'auth-plan.md'), '# Auth Plan\n');
+
+    const result = run(['wiki', 'show', 'knowledge/auth-plan'], { cwd: nestedDir });
+
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout.trim(), '# Auth Plan');
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
