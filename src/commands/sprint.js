@@ -3,6 +3,11 @@ import getBackend from '../backends/index.js';
 import { buildLifecycleEdit, cascadeCloseParentsFromIssue } from '../automation/lifecycle.js';
 import { sprintTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
+import { getMetadataField, parseMetadataList, setMetadataListField } from '../utils/metadata.js';
+
+function collectValues(value, previous = []) {
+  return previous.concat(value);
+}
 
 export function makeSprintCommand() {
   const sprint = new Command('sprint').description('Manage sprints');
@@ -16,10 +21,10 @@ export function makeSprintCommand() {
     .requiredOption('--start <date>', 'Start date')
     .requiredOption('--end <date>', 'End date')
     .option('-a, --assignee <user>', 'Assignee username')
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (title, opts) => {
       try {
         const backend = getBackend();
-        const epicRef = opts.epic ? `#${opts.epic}` : '';
         const body = sprintTemplate({
           description: opts.description,
           epicNumber: opts.epic || '',
@@ -27,6 +32,7 @@ export function makeSprintCommand() {
           start: opts.start || '',
           end: opts.end || '',
           owner: opts.assignee || '',
+          knowledgeLinks: parseMetadataList(opts.knowledge),
         });
         const prefix = opts.epic ? `sprint(#${opts.epic})` : 'sprint';
         const issue = await backend.createIssue({
@@ -82,16 +88,27 @@ export function makeSprintCommand() {
     .option('--epic <epic-number>', 'Re-assign to epic')
     .option('--points <n>', 'Story points')
     .option('--status <state>', 'open or closed')
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (number, opts) => {
       try {
         const backend = getBackend();
         const currentIssue = await backend.viewIssue(number);
         const editOpts = {};
+        let nextBody = currentIssue.body;
         if (opts.title) {
           const epicPart = opts.epic ? `(#${opts.epic})` : '';
           editOpts.title = `sprint${epicPart}: ${opts.title}`;
         }
-        if (opts.status) Object.assign(editOpts, buildLifecycleEdit(currentIssue, opts.status));
+        if (opts.status) {
+          const lifecycleEdit = buildLifecycleEdit(currentIssue, opts.status);
+          Object.assign(editOpts, lifecycleEdit);
+          nextBody = lifecycleEdit.body;
+        }
+        if (opts.knowledge.length) {
+          const knowledgeLinks = parseMetadataList(getMetadataField(nextBody, 'Knowledge Links'), opts.knowledge);
+          editOpts.body = setMetadataListField(nextBody, 'Knowledge Links', knowledgeLinks);
+        }
+
         const issue = await backend.editIssue(number, editOpts);
         if (opts.status === 'closed') {
           await cascadeCloseParentsFromIssue(issue, 'sprint', { backend });

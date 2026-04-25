@@ -1,13 +1,13 @@
 ---
 name: git-tasks
-description: AI-native project management CLI for GitHub. Use when the user wants to inspect or update the planning hierarchy (epics, sprints, user stories), drive story lifecycle transitions (start work, ready for review, close), or integrate raw inputs such as client meeting notes or feature transcripts into the existing plan — either by updating open items or creating new ones as a diff. Do not use for reading a single issue or PR without any project-management intent; prefer standard gh commands for those one-off lookups. Triggers include "what's the current sprint status", "create a story for this feature", "move this story to in-progress", "close out the sprint", "update the plan based on today's meeting notes", or any request involving epics, sprints, or story lifecycle management.
+description: AI-native project management CLI for GitHub. Use when the user wants to inspect or update the planning hierarchy (epics, sprints, user stories), drive story lifecycle transitions (start work, ready for review, close), or compile inbound notes, transcripts, uploads, and feature requests into structured wiki knowledge before changing the plan. Do not use for reading a single issue or PR without project-management intent; prefer standard gh commands for those one-off lookups. Triggers include "what's the current sprint status", "create a story for this feature", "move this story to in-progress", "close out the sprint", "update the plan based on today's meeting notes", or any request involving epics, sprints, story lifecycle, or wiki-backed planning updates.
 allowed-tools: Bash(git-tasks:*), Bash(npx @atena-reply/git-tasks:*)
 hidden: true
 ---
 
 # git-tasks
 
-**Use when** you are acting as an AI project manager — inspecting or updating epics, sprints, and user stories, driving story lifecycle transitions, or translating raw inputs (meeting notes, feature requests, transcripts) into structured project plan changes.
+**Use when** you are acting as an AI project manager — inspecting or updating epics, sprints, and user stories, driving story lifecycle transitions, or translating inbound inputs (meeting notes, feature requests, transcripts, uploaded files) into structured project-plan changes.
 
 **Do not use** for one-off issue or PR lookups without project-management intent. For those, use standard `gh` commands:
 ```bash
@@ -22,6 +22,10 @@ gh pr list
 - Ensure `gh auth status` succeeds.
 - Prefer `--short` output unless you need full issue bodies or comments.
 - Run `git-tasks init` at the repository root if `wiki/` is missing.
+- If `.git-tasks/config.json` exists, read it before planning. Use `planningHorizons` as repo-specific sizing guidance and `defaultReviewers` (or `owner`) as the default review handoff target.
+- If `wiki/knowledge/index.md` exists, read it before opening individual knowledge nodes.
+- If the repo still has legacy `wiki/raw/` or `wiki/processed/` content, it is fine to read it for historical context, but write new material into `wiki/inbox/` and `wiki/knowledge/`.
+- If the repo is being initialized for the first time, prefer `git-tasks init --owner <user> --reviewer <user>` so the repo contract is explicit from the start.
 - Start with `git-tasks overview --depth 2` before drilling into individual issues.
 - Install the skill anywhere with `npx @atena-reply/git-tasks skill install --target all`.
 
@@ -30,30 +34,48 @@ gh pr list
 - **Stories** are agent-sized atomic units: large enough for one coding agent to finish independently, but usually no more than a few hours to one day.
 - **Sprints** should usually span no more than three days.
 - **Epics** should usually span no more than two weeks.
+- If `.git-tasks/config.json` defines `planningHorizons`, treat those values as repo-specific overrides for the default sizing guidance above.
 - Keep dependencies explicit and current: every story should point at its sprint and epic, and every sprint should point at its epic.
 
 ## Recommended workflow
 
-1. Initialize and use the wiki as the audit source of truth with `git-tasks init`.
-2. If the user gives you notes in chat, dump them first into `wiki/raw/`.
-3. If the user already dropped notes into the wiki, read from `wiki/raw/` first.
-4. Before decomposing work or changing epics, sprints, or stories, write a new timestamped markdown file into `wiki/processed/` summarizing the interpreted knowledge and intended PM changes.
-5. Inspect the hierarchy with `git-tasks overview --depth 2`.
-6. Find the right epic with `git-tasks epic list --short`.
-7. Find the right sprint with `git-tasks sprint list --epic <n> --short`.
-8. Inspect or update stories with `git-tasks story list --sprint <n> --short`.
-9. Use `show` only when you need full body text or comments.
+1. Initialize the repository once with `git-tasks init`.
+2. If the user gives you notes in chat or hands you uploaded files, capture the inbound material in `wiki/inbox/` first.
+3. If inbound material is already on disk, treat `wiki/inbox/` as the intake layer and preserve the source wording there.
+4. Read `wiki/knowledge/index.md` before planning so you reuse or refine existing knowledge instead of creating duplicates.
+5. Update or create knowledge nodes in `wiki/knowledge/` only when durable understanding changes.
+6. After the knowledge layer is current, inspect and update epics, sprints, and stories.
+7. Use issue `Knowledge Links` metadata whenever backlog items are tied to specific knowledge docs.
+8. Use `show` only when you need full body text or comments.
 
-Treat `wiki/processed/` as append-only and ordered by arrival time using timestamp-prefixed filenames.
+Keep `wiki/knowledge/` flat. The semantic kind belongs in frontmatter `type`, not in subdirectories.
+Use dash-case frontmatter keys. A practical minimum is:
+- `id`
+- `type`
+- `title`
+- `timestamp`
+- `status`
+- `tags`
+- `sources`
+- `issue-refs`
+- `neighbours`
+- `supersedes`
+
+Keep the body focused on human-readable reasoning. Each knowledge node should normally include:
+- **Context/Source:** what changed or arrived
+- **Interpretation:** the durable understanding extracted from it
+- **Planning changes:** the backlog changes that should follow, if any
+- **Rationale:** why that decomposition or update is the right one
+- **Consequences:** downstream effects or follow-up implications
 
 ## Core commands
 
 ### Create
 
 ```bash
-git-tasks epic create "Epic title" -d "description" -p 13 --start YYYY-MM-DD --end YYYY-MM-DD
-git-tasks sprint create "Sprint title" --epic <n> -d "description" -p 8 --start YYYY-MM-DD --end YYYY-MM-DD
-git-tasks story create "Story title" --sprint <n> --epic <n> -d "description" -p 3 --priority high -a <username>
+git-tasks epic create "Epic title" -d "description" -p 13 --start YYYY-MM-DD --end YYYY-MM-DD --knowledge wiki/knowledge/example.md
+git-tasks sprint create "Sprint title" --epic <n> -d "description" -p 8 --start YYYY-MM-DD --end YYYY-MM-DD --knowledge wiki/knowledge/example.md
+git-tasks story create "Story title" --sprint <n> --epic <n> -d "description" -p 3 --priority high -a <username> --knowledge wiki/knowledge/example.md
 ```
 
 ### Inspect
@@ -70,9 +92,9 @@ git-tasks story show <n>
 ### Update
 
 ```bash
-git-tasks epic update <n> --status closed --points 21
-git-tasks sprint update <n> --status closed
-git-tasks story update <n> --status in-progress
+git-tasks epic update <n> --status closed --knowledge wiki/knowledge/example.md
+git-tasks sprint update <n> --status closed --knowledge wiki/knowledge/example.md
+git-tasks story update <n> --status in-progress --knowledge wiki/knowledge/example.md
 git-tasks story update <n> --status ready-for-review --reviewer octocat
 git-tasks story update <n> --status closed
 git-tasks story update <n> -a <username>
@@ -83,8 +105,8 @@ git-tasks story update <n> -a <username>
 ```bash
 git-tasks init
 git-tasks wiki list
-git-tasks wiki show raw/<filename>
-git-tasks wiki show processed/<timestamped-filename>
+git-tasks wiki show inbox/<filename>
+git-tasks wiki show knowledge/index
 ```
 
 ## Title conventions
@@ -93,12 +115,17 @@ git-tasks wiki show processed/<timestamped-filename>
 - Sprint: `sprint(#<epic-number>): <title>`
 - User story: `story(#<sprint-number>): <title>`
 
-## Output guidance
+## Lifecycle boundaries and output guidance
 
-- Use `overview` for context.
-- Use `list --short` for low-token discovery.
+- Read `wiki/knowledge/index.md` first, then open only the relevant knowledge files.
+- New material in `wiki/inbox/` by itself does **not** justify creating or updating issues, branches, or pull requests.
+- New or updated knowledge that changes the plan **may** justify epic/sprint/story create or update operations.
+- Use `overview` for context and `list --short` for low-token discovery.
 - Use `show --comments` only when comments matter.
 - Reuse returned issue numbers as stable references.
+- When backlog items are tied to knowledge docs, record those links in issue `Knowledge Links` metadata and mirror the issue numbers back into knowledge frontmatter `issue-refs`.
 - When a story is picked up, work from an isolated worktree with a named branch and attached draft PR.
-- Log meaningful units of work in both the draft PR and `wiki/processed/` so the execution trail remains auditable.
-- When moving a story to `ready-for-review`, make sure the draft PR is promoted and review is requested from the repository owner or default reviewers.
+- Routine execution should follow the existing story lifecycle; do not create new knowledge nodes unless durable understanding or planning changed.
+- When moving a story to `ready-for-review`, make sure the draft PR is promoted and review is requested from `--reviewer` when explicitly provided, otherwise `GIT_TASKS_REVIEWERS`, otherwise `.git-tasks/config.json` `defaultReviewers`, falling back to `owner`.
+- Branches and draft PRs are execution artifacts for stories, not wiki entities.
+- Treat worktrees, PR logs, and review handoff as required operating discipline even when your host does not automate them yet; if your agent host supports hooks, that is the right layer to enforce them.

@@ -1,11 +1,14 @@
 import getBackend from '../backends/index.js';
 import { parseIssueTitle } from '../utils/format.js';
+import { loadConfig } from '../utils/config.js';
 import {
   getMetadataField,
   normalizeLifecycleStatus,
+  parseMetadataList,
   parsePullRequestReference,
   parseReviewerList,
   setMetadataField,
+  setMetadataListField,
 } from '../utils/metadata.js';
 
 export const WORKFLOW_STATUS_LABELS = [
@@ -42,6 +45,14 @@ function isClosed(issue) {
   return String(issue.state).toUpperCase() === 'CLOSED';
 }
 
+function getKnowledgeLinks(issue) {
+  return parseMetadataList(getMetadataField(issue.body || '', 'Knowledge Links'));
+}
+
+function isPullRequestNotFound(error) {
+  return /not found|could not resolve to a pullrequest/i.test(error?.message || '');
+}
+
 export function getStatusLabel(status) {
   const normalized = normalizeLifecycleStatus(status);
   return normalized === 'closed' ? 'status:done' : `status:${normalized}`;
@@ -61,12 +72,41 @@ export function buildLifecycleEdit(issue, status) {
 }
 
 function buildPullRequestBody(story) {
-  return `## Summary
+  const knowledgeLinks = getKnowledgeLinks(story);
+  let body = `## Summary
 Implements ${story.title}
 
 ## Linked story
-Refs #${story.number}
+Refs #${story.number}`;
+
+  if (knowledgeLinks.length) {
+    body += `
+
+## Knowledge context
+${knowledgeLinks.map((link) => `- ${link}`).join('\n')}`;
+  }
+
+  return `${body}
 `;
+}
+
+function normalizePullRequestBody(body = '') {
+  return String(body).trimEnd();
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isManagedPullRequestBody(body, story) {
+  const normalized = normalizePullRequestBody(body);
+  const titlePattern = escapeRegExp(story.title);
+  const numberPattern = escapeRegExp(String(story.number));
+  const managedBodyPattern = new RegExp(
+    `^## Summary\\nImplements ${titlePattern}\\n\\n## Linked story\\nRefs #${numberPattern}(?:\\n\\n## Knowledge context\\n(?:- .+\\n?)*)?$`,
+  );
+
+  return managedBodyPattern.test(normalized);
 }
 
 async function findStoryPullRequest(story, { backend }) {
@@ -74,8 +114,10 @@ async function findStoryPullRequest(story, { backend }) {
   if (linked?.number) {
     try {
       return await backend.viewPullRequest(linked.number);
-    } catch {
-      // fall back to search
+    } catch (error) {
+      if (!isPullRequestNotFound(error)) {
+        throw new Error(`Failed to load linked PR #${linked.number}: ${error.message}`);
+      }
     }
   }
 
@@ -88,9 +130,23 @@ async function findStoryPullRequest(story, { backend }) {
     `${pullRequest.title}\n${pullRequest.body || ''}`.includes(`#${story.number}`)) || null;
 }
 
+async function syncPullRequestContext(story, pullRequest, { backend }) {
+  const body = buildPullRequestBody(story);
+  if (normalizePullRequestBody(pullRequest.body) === normalizePullRequestBody(body)) {
+    return pullRequest;
+  }
+  if (!isManagedPullRequestBody(pullRequest.body, story)) {
+    return pullRequest;
+  }
+  if (typeof backend.editPullRequest !== 'function') {
+    throw new Error('The configured backend cannot sync pull request context because it does not implement editPullRequest().');
+  }
+  return backend.editPullRequest(pullRequest.number, { body });
+}
+
 export async function ensureStoryPullRequest(story, { backend = getBackend(), base, head } = {}) {
   const existing = await findStoryPullRequest(story, { backend });
-  if (existing) return existing;
+  if (existing) return syncPullRequestContext(story, existing, { backend });
 
   const branch = head || backend.getCurrentBranch();
   if (!branch) {
@@ -106,12 +162,34 @@ export async function ensureStoryPullRequest(story, { backend = getBackend(), ba
   });
 }
 
-function mergeReviewerSources(reviewers = []) {
-  const envReviewers = process.env.GIT_TASKS_REVIEWERS || '';
-  return parseReviewerList(reviewers, envReviewers);
+function mergeReviewerSources(reviewers = [], rootDir = process.cwd()) {
+  const explicitReviewers = parseReviewerList(reviewers);
+  if (explicitReviewers.length) {
+    return explicitReviewers;
+  }
+
+  const envReviewers = parseReviewerList(process.env.GIT_TASKS_REVIEWERS || '');
+  if (envReviewers.length) {
+    return envReviewers;
+  }
+
+  const config = loadConfig(rootDir);
+  if (config.defaultReviewers?.length) {
+    return parseReviewerList(config.defaultReviewers);
+  }
+
+  return config.owner ? [config.owner] : [];
 }
 
-export async function applyStoryLifecycle(number, { status, reviewers = [], base, head, backend = getBackend() } = {}) {
+export async function applyStoryLifecycle(number, {
+  status,
+  reviewers = [],
+  knowledgeLinks = [],
+  base,
+  head,
+  backend = getBackend(),
+  rootDir = process.cwd(),
+} = {}) {
   const story = await backend.viewIssue(number);
   if (parseIssueTitle(story.title).type !== 'story') {
     throw new Error(`Issue #${number} is not a user story.`);
@@ -119,17 +197,24 @@ export async function applyStoryLifecycle(number, { status, reviewers = [], base
 
   const normalizedStatus = normalizeLifecycleStatus(status);
   const reviewerList = normalizedStatus === 'ready-for-review'
-    ? mergeReviewerSources(reviewers)
+    ? mergeReviewerSources(reviewers, rootDir)
     : [];
   if (normalizedStatus === 'ready-for-review' && !reviewerList.length) {
-    throw new Error('Marking a story ready-for-review requires at least one reviewer. Pass --reviewer or set GIT_TASKS_REVIEWERS.');
+    throw new Error('Marking a story ready-for-review requires at least one reviewer. Pass --reviewer, set GIT_TASKS_REVIEWERS, or configure .git-tasks/config.json.');
   }
 
-  const edit = buildLifecycleEdit(story, status);
+  const mergedKnowledgeLinks = knowledgeLinks.length
+    ? parseMetadataList(getKnowledgeLinks(story), knowledgeLinks)
+    : [];
+  const storyForEdit = mergedKnowledgeLinks.length
+    ? { ...story, body: setMetadataListField(story.body || '', 'Knowledge Links', mergedKnowledgeLinks) }
+    : story;
+
+  const edit = buildLifecycleEdit(storyForEdit, status);
   let pullRequest = null;
 
   if (edit.state === 'open' && normalizedStatus !== 'open') {
-    pullRequest = await ensureStoryPullRequest(story, { backend, base, head });
+    pullRequest = await ensureStoryPullRequest(storyForEdit, { backend, base, head });
     edit.body = setMetadataField(edit.body, 'Linked PR', pullRequest.url);
 
     if (normalizedStatus === 'ready-for-review') {

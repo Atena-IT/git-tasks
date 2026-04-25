@@ -3,6 +3,11 @@ import getBackend from '../backends/index.js';
 import { buildLifecycleEdit } from '../automation/lifecycle.js';
 import { epicTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
+import { getMetadataField, parseMetadataList, setMetadataListField } from '../utils/metadata.js';
+
+function collectValues(value, previous = []) {
+  return previous.concat(value);
+}
 
 export function makeEpicCommand() {
   const epic = new Command('epic').description('Manage epics');
@@ -15,6 +20,7 @@ export function makeEpicCommand() {
     .requiredOption('--start <date>', 'Start date')
     .requiredOption('--end <date>', 'End date')
     .option('-a, --assignee <user>', 'Assignee username')
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (title, opts) => {
       try {
         const backend = getBackend();
@@ -24,6 +30,7 @@ export function makeEpicCommand() {
           start: opts.start || '',
           end: opts.end || '',
           owner: opts.assignee || '',
+          knowledgeLinks: parseMetadataList(opts.knowledge),
         });
         const issue = await backend.createIssue({
           title: `epic: ${title}`,
@@ -73,13 +80,25 @@ export function makeEpicCommand() {
     .option('--points <n>', 'Story points')
     .option('--status <state>', 'open or closed')
     .option('--add-blocker <issue-number>', 'Add a blocking issue reference')
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (number, opts) => {
       try {
         const backend = getBackend();
         const currentIssue = await backend.viewIssue(number);
         const editOpts = {};
+        let nextBody = currentIssue.body;
+
         if (opts.title) editOpts.title = `epic: ${opts.title}`;
-        if (opts.status) Object.assign(editOpts, buildLifecycleEdit(currentIssue, opts.status));
+        if (opts.status) {
+          const lifecycleEdit = buildLifecycleEdit(currentIssue, opts.status);
+          Object.assign(editOpts, lifecycleEdit);
+          nextBody = lifecycleEdit.body;
+        }
+        if (opts.knowledge.length) {
+          const knowledgeLinks = parseMetadataList(getMetadataField(nextBody, 'Knowledge Links'), opts.knowledge);
+          editOpts.body = setMetadataListField(nextBody, 'Knowledge Links', knowledgeLinks);
+        }
+
         const issue = await backend.editIssue(number, editOpts);
         printSuccess(`Updated epic #${issue.number}`);
       } catch (err) {

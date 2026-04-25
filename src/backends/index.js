@@ -6,6 +6,12 @@
  *   listIssues({ labels, state, limit }) → Issue[]
  *   viewIssue(number, { comments }) → Issue
  *   editIssue(number, { title, body, addLabels, removeLabels, addAssignees, state }) → Issue
+ *   listPullRequests({ state, base, head, search }) → PullRequest[]
+ *   viewPullRequest(number) → PullRequest
+ *   createPullRequest({ title, body, base, head, draft }) → PullRequest
+ *   editPullRequest(number, { title, body, base }) → PullRequest
+ *   markPullRequestReady(number) → PullRequest
+ *   requestPullRequestReview(number, { reviewers }) → PullRequest
  */
 
 import githubBackend from './github.js';

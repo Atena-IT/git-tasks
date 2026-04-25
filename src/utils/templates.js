@@ -2,7 +2,11 @@
  * Issue body templates for epics, sprints, and user stories.
  */
 
-export function epicTemplate({ description = '', points = 0, start = '', end = '', owner = '' } = {}) {
+function formatKnowledgeLinks(knowledgeLinks = []) {
+  return knowledgeLinks.join(', ');
+}
+
+export function epicTemplate({ description = '', points = 0, start = '', end = '', owner = '', knowledgeLinks = [] } = {}) {
   return `## Description
 ${description || '<!-- Epic description -->'}
 
@@ -18,6 +22,7 @@ ${description || '<!-- Epic description -->'}
 - **Start Date:** ${start}
 - **End Date:** ${end}
 - **Owner:** ${owner}
+- **Knowledge Links:** ${formatKnowledgeLinks(knowledgeLinks)}
 
 ## Child Sprints
 <!-- Will be auto-populated -->
@@ -30,7 +35,7 @@ ${description || '<!-- Epic description -->'}
 `;
 }
 
-export function sprintTemplate({ description = '', epicNumber = '', points = 0, start = '', end = '', owner = '' } = {}) {
+export function sprintTemplate({ description = '', epicNumber = '', points = 0, start = '', end = '', owner = '', knowledgeLinks = [] } = {}) {
   return `## Description
 ${description || '<!-- Sprint description -->'}
 
@@ -47,6 +52,7 @@ ${description || '<!-- Sprint description -->'}
 - **End Date:** ${end}
 - **Epic:** ${epicNumber ? `#${epicNumber}` : ''}
 - **Owner:** ${owner}
+- **Knowledge Links:** ${formatKnowledgeLinks(knowledgeLinks)}
 
 ## User Stories
 <!-- Will be auto-populated -->
@@ -58,7 +64,7 @@ ${description || '<!-- Sprint description -->'}
 `;
 }
 
-export function storyTemplate({ description = '', sprintNumber = '', epicNumber = '', points = 1, assignee = '', priority = 'medium' } = {}) {
+export function storyTemplate({ description = '', sprintNumber = '', epicNumber = '', points = 1, assignee = '', priority = 'medium', knowledgeLinks = [] } = {}) {
   return `## Description
 ${description || '<!-- User story description -->'}
 
@@ -75,7 +81,8 @@ ${description || '<!-- User story description -->'}
 - **Epic:** ${epicNumber ? `#${epicNumber}` : ''}
 - **Assignee:** ${assignee}
 - **Priority:** ${priority}
-- **Linked PR:** 
+- **Knowledge Links:** ${formatKnowledgeLinks(knowledgeLinks)}
+- **Linked PR:**
 
 ## Tasks
 - [ ] task 1

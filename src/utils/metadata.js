@@ -2,6 +2,14 @@ function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function parseDelimitedList(...values) {
+  return [...new Set(values
+    .flat()
+    .flatMap((value) => value == null ? [] : String(value).split(','))
+    .map((value) => value.trim())
+    .filter(Boolean))];
+}
+
 export function getMetadataField(body = '', field) {
   const pattern = new RegExp(`^- \\*\\*${escapeRegex(field)}:\\*\\*\\s*(.*)$`, 'mi');
   const match = body.match(pattern);
@@ -22,6 +30,11 @@ export function setMetadataField(body = '', field, value) {
   }
 
   return safeBody.replace(/## Metadata\s*\n/i, (heading) => `${heading}${line}\n`);
+}
+
+export function setMetadataListField(body = '', field, values = []) {
+  const normalized = parseDelimitedList(values);
+  return setMetadataField(body, field, normalized.join(', '));
 }
 
 export function normalizeLifecycleStatus(status = 'open') {
@@ -49,12 +62,12 @@ export function normalizeLifecycleStatus(status = 'open') {
   return aliases.get(normalized);
 }
 
+export function parseMetadataList(...values) {
+  return parseDelimitedList(...values);
+}
+
 export function parseReviewerList(...values) {
-  return [...new Set(values
-    .flat()
-    .flatMap((value) => String(value).split(','))
-    .map((value) => value.trim())
-    .filter(Boolean))];
+  return parseDelimitedList(...values);
 }
 
 export function parsePullRequestReference(value = '') {

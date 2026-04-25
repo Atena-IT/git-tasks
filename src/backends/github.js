@@ -40,16 +40,7 @@ function extractIssueNumberFromOutput(output) {
  * Ensure a label exists in the repo; create it if missing.
  */
 function ensureLabel(name, color, description) {
-  try {
-    runGh(['label', 'list', '--json', 'name', '--jq', `.[].name`]);
-  } catch {
-    // ignore
-  }
-  try {
-    runGh(['label', 'create', name, '--color', color, '--description', description, '--force']);
-  } catch {
-    // label may already exist
-  }
+  runGh(['label', 'create', name, '--color', color, '--description', description, '--force']);
 }
 
 const LABEL_CONFIG = {
@@ -160,6 +151,15 @@ export function createPullRequest({ title, body, base, head, draft = false }) {
   return viewPullRequest(match[1]);
 }
 
+export function editPullRequest(number, { title, body, base } = {}) {
+  const args = ['pr', 'edit', String(number)];
+  if (title) args.push('--title', title);
+  if (body !== undefined) args.push('--body', body);
+  if (base) args.push('--base', base);
+  runGh(args);
+  return viewPullRequest(number);
+}
+
 export function markPullRequestReady(number) {
   runGh(['pr', 'ready', String(number)]);
   return viewPullRequest(number);
@@ -184,6 +184,7 @@ const githubBackend = {
   listPullRequests,
   viewPullRequest,
   createPullRequest,
+  editPullRequest,
   markPullRequestReady,
   requestPullRequestReview,
 };

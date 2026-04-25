@@ -111,18 +111,18 @@ git-tasks overview [--depth 1|2|3] [--state open|closed|all]
 ```bash
 git-tasks init
 git-tasks wiki list
-git-tasks wiki show raw/<file>
-git-tasks wiki show processed/<timestamped-file>
+git-tasks wiki show inbox/<file>
+git-tasks wiki show knowledge/index
 ```
 
 ## Agent-friendly usage
 
 ```bash
-git-tasks init
+git-tasks init --owner octocat --reviewer octocat
 git-tasks overview --depth 2
 git-tasks epic list --short
 git-tasks story list --short --sprint 5
-git-tasks story update 42 --status in-progress
+git-tasks story update 42 --status in-progress --knowledge wiki/knowledge/auth-plan.md
 git-tasks story update 42 --status ready-for-review --reviewer octocat
 ```
 
@@ -131,24 +131,53 @@ git-tasks story update 42 --status ready-for-review --reviewer octocat
 - **Stories** are agent-sized atomic slices: independently executable work that should usually take from a few hours up to one day.
 - **Sprints** are short execution windows and should usually stay within three days.
 - **Epics** are the largest planning bucket and should usually stay within two weeks.
+- `.git-tasks/config.json` can override these defaults with repo-specific `planningHorizons` for agents to read.
 - Always keep dependencies explicit: stories belong to a sprint and epic, sprints belong to an epic, and each item should carry enough metadata to be auditable without extra chat context.
 
-## Wiki-first audit workflow
+## Wiki-first knowledge workflow
 
 - Initialize the repository once with `git-tasks init`.
-- Put raw human inputs in `wiki/raw/` exactly as they arrive: meeting notes, pasted chats, TODO dumps, transcripts, or user scratch notes.
-- Before decomposing work or changing the backlog, write a new timestamped file into `wiki/processed/` that captures the interpreted knowledge and intended planning change.
-- Treat `wiki/processed/` as append-only. Use timestamp-prefixed filenames so entries remain ordered by arrival time and can serve as an audit trail.
-- Then update epics, sprints, and stories using the processed wiki entry as the source of truth.
+- Put inbound human or system inputs in `wiki/inbox/` exactly as they arrive: meeting notes, pasted chats, TODO dumps, transcripts, uploads, or scratch notes.
+- Read `wiki/knowledge/index.md` before opening individual knowledge files so you reuse existing context instead of creating duplicate nodes.
+- Keep `wiki/knowledge/` flat. The semantic kind belongs in frontmatter `type`, not in subdirectories.
+- Use dash-case frontmatter keys for knowledge nodes. A practical minimum is `id`, `type`, `title`, `timestamp`, `status`, `tags`, `sources`, `issue-refs`, `neighbours`, and `supersedes`.
+- Knowledge node bodies should capture the context/source, interpretation, planning changes, rationale, and consequences.
+- Update or create knowledge nodes only when durable understanding changes. Then update epics, sprints, and stories from that compiled knowledge when the plan actually changed.
+- When backlog items are tied to specific knowledge docs, store repo-relative `wiki/knowledge/...` paths in issue `Knowledge Links` metadata.
+- Legacy `wiki/raw/` and `wiki/processed/` content may still be read for historical context, but new writes should target `wiki/inbox/` and `wiki/knowledge/`.
+
+## Configuration
+
+Run `git-tasks init --owner <user> --reviewer <user>` to create `.git-tasks/config.json` at the repository root. Commit this file so human teammates and AI agents share the same defaults.
+
+```json
+{
+  "owner": "octocat",
+  "defaultReviewers": ["octocat"],
+  "planningHorizons": {
+    "storyMaxDays": 1,
+    "sprintMaxDays": 3,
+    "epicMaxWeeks": 2
+  }
+}
+```
+
+- `defaultReviewers` is the repo-level fallback when `--reviewer` is not passed and `GIT_TASKS_REVIEWERS` is not set.
+- `owner` is the last reviewer fallback when `defaultReviewers` is empty.
+- `planningHorizons` is for AI guidance, not CLI enforcement. It lets each repo tighten or relax the default story/sprint/epic sizing without editing the shipped skill text.
 
 ## Task lifecycle automation
 
+- New material in `wiki/inbox/` by itself does **not** create or update issues, branches, or pull requests.
+- New or updated knowledge in `wiki/knowledge/` may lead to epic, sprint, or story create/update operations when the planning delta is real.
 - `story update --status in-progress` keeps the story open, updates its workflow status, and ensures a draft PR exists for the current branch.
 - Agents should pick up stories in an isolated worktree with a named branch and attached draft PR so execution stays reviewable and self-contained.
-- While work is in progress, keep the draft PR and `wiki/processed/` updated with units of work so the story history is auditable.
-- `story update --status ready-for-review` promotes the linked draft PR to ready for review and now requires reviewers via `--reviewer` or `GIT_TASKS_REVIEWERS=user1,user2` (set this to the repository owner when that is your default reviewer).
+- Routine execution should not create new knowledge nodes unless durable understanding or planning changed.
+- `story update --status ready-for-review` promotes the linked draft PR to ready for review and requires reviewers via `--reviewer`, `GIT_TASKS_REVIEWERS=user1,user2`, or the repo-level defaults in `.git-tasks/config.json`.
+- When a story is tied to knowledge docs, surface those docs via issue `Knowledge Links` metadata and in the story PR body for reviewer context.
 - `story update --status closed` closes the story and automatically closes the parent sprint and epic when all of their children are closed.
 - `sprint update --status closed` also cascades closure up to the parent epic when appropriate.
+- Branches and draft PRs are execution artifacts for stories, not wiki entities.
 
 ## Adding a Backend
 

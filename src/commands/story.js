@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import getBackend from '../backends/index.js';
 import { applyStoryLifecycle } from '../automation/lifecycle.js';
-import { parseReviewerList } from '../utils/metadata.js';
+import { getMetadataField, parseMetadataList, parseReviewerList, setMetadataListField } from '../utils/metadata.js';
 import { storyTemplate } from '../utils/templates.js';
 import { formatIssueList, formatIssueDetail, printSuccess, printError } from '../utils/format.js';
 
@@ -21,6 +21,7 @@ export function makeStoryCommand() {
     .requiredOption('-p, --points <n>', 'Story points')
     .option('-a, --assignee <user>', 'Assignee username')
     .requiredOption('--priority <level>', 'Priority: low, medium, high')
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (title, opts) => {
       try {
         const backend = getBackend();
@@ -31,6 +32,7 @@ export function makeStoryCommand() {
           points: opts.points,
           assignee: opts.assignee || '',
           priority: opts.priority,
+          knowledgeLinks: parseMetadataList(opts.knowledge),
         });
         const sprintRef = opts.sprint ? `#${opts.sprint}` : '';
         const prefix = sprintRef ? `story(${sprintRef})` : 'story';
@@ -99,10 +101,12 @@ export function makeStoryCommand() {
     .option('--base <branch>', 'Base branch to use when creating a lifecycle pull request')
     .option('--head <branch>', 'Head branch to use when creating a lifecycle pull request')
     .option('-r, --reviewer <user>', 'Reviewer to request when marking ready-for-review', collectValues, [])
+    .option('-k, --knowledge <path>', 'Linked knowledge document path', collectValues, [])
     .action(async (number, opts) => {
       try {
         const backend = getBackend();
         const editOpts = {};
+        const requestedKnowledgeLinks = parseMetadataList(opts.knowledge);
         if (opts.title) {
           const sprintPart = opts.sprint ? `(#${opts.sprint})` : '';
           editOpts.title = `story${sprintPart}: ${opts.title}`;
@@ -113,6 +117,7 @@ export function makeStoryCommand() {
           ({ issue } = await applyStoryLifecycle(number, {
             status: opts.status,
             reviewers: parseReviewerList(opts.reviewer),
+            knowledgeLinks: requestedKnowledgeLinks,
             base: opts.base,
             head: opts.head,
             backend,
@@ -121,6 +126,11 @@ export function makeStoryCommand() {
             issue = await backend.editIssue(number, editOpts);
           }
         } else {
+          const currentIssue = await backend.viewIssue(number);
+          if (requestedKnowledgeLinks.length) {
+            const knowledgeLinks = parseMetadataList(getMetadataField(currentIssue.body, 'Knowledge Links'), requestedKnowledgeLinks);
+            editOpts.body = setMetadataListField(currentIssue.body, 'Knowledge Links', knowledgeLinks);
+          }
           issue = await backend.editIssue(number, editOpts);
         }
         printSuccess(`Updated user story #${issue.number}`);

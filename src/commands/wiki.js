@@ -5,48 +5,60 @@ import { printError } from '../utils/format.js';
 import chalk from 'chalk';
 
 const WIKI_DIR = 'wiki';
-const RAW_DIR = 'raw';
-const PROCESSED_DIR = 'processed';
+const INBOX_DIR = 'inbox';
+const KNOWLEDGE_DIR = 'knowledge';
 
 const WIKI_README = `# Project Wiki
 
-This wiki contains project documentation managed by git-tasks.
+This wiki contains project knowledge managed by git-tasks.
 
 ## Structure
 
-- \`wiki/raw/\` is for direct user notes, meeting dumps, transcripts, and scratch inputs.
-- \`wiki/processed/\` is for AI-managed, append-only planning logs that must be created before decomposition or backlog updates.
-- Timestamp processed entries so they sort by arrival time, for example \`wiki/processed/2026-04-23T09-54-02Z-story-split.md\`.
+- \`wiki/inbox/\` is for direct human or system inputs such as meeting notes, transcripts, pasted chats, and scratch notes.
+- \`wiki/knowledge/\` is for structured knowledge nodes whose semantic type lives in frontmatter.
+- \`wiki/knowledge/index.md\` is the append-only encyclopedia index that AI agents should scan first before opening individual knowledge files.
+- Keep legacy \`wiki/raw/\` and \`wiki/processed/\` folders readable if they already exist, but write new material into \`wiki/inbox/\` and \`wiki/knowledge/\`.
 - Use \`git-tasks wiki list\` to list files recursively.
-- Use \`git-tasks wiki show <filename>\` to view a file, including nested paths such as \`raw/discovery.md\`.
+- Use \`git-tasks wiki show <filename>\` to view a file, including nested paths such as \`inbox/discovery.md\` or \`knowledge/index.md\`.
 `;
 
-const RAW_WIKI_README = `# Raw Notes
+const INBOX_WIKI_README = `# Inbox
 
-Use this space for unprocessed inputs from humans or external systems.
+Use this space for unmodified incoming material from humans or external systems.
 
 - Drop notes exactly as they arrive.
-- Keep the original wording when possible.
-- AI project-management flows should read from here, then write normalized conclusions into \`wiki/processed/\`.
+- Preserve original wording when possible.
+- Inbox entries alone should not trigger issue, branch, or pull-request changes until the knowledge has been compiled into \`wiki/knowledge/\`.
 `;
 
-const PROCESSED_WIKI_README = `# Processed Audit Log
+const KNOWLEDGE_WIKI_README = `# Knowledge
 
-Use this space for AI-managed, append-only planning records.
+Use this space for durable knowledge nodes managed by AI and humans.
 
-- Write a new markdown file before decomposing work or changing epics, sprints, or stories.
-- Keep entries ordered by arrival time with timestamp-prefixed filenames.
-- Record the source inputs, interpretation, and resulting planning changes so audits can trace every decision.
+- Keep files flat in this directory; use frontmatter \`type\` rather than subdirectories to express whether a node is a decision, plan, constraint, observation, procedure, or something else.
+- Use dash-case frontmatter keys such as \`timestamp\`, \`issue-refs\`, and \`neighbours\`.
+- Update or create knowledge nodes when durable understanding changes.
+- Update \`index.md\` whenever knowledge changes so agents can navigate the wiki efficiently.
+- Legacy \`processed/\` content may still be read, but new durable knowledge belongs here.
+`;
+
+const KNOWLEDGE_INDEX = `# Knowledge Index
+
+Append new knowledge entries in arrival order using this format:
+
+- \`<timestamp> | <type> | [Title](file.md) — short description\`
+
+Agents should scan this index first, then open only the relevant knowledge nodes.
 `;
 
 function listMarkdownFiles(dir, prefix = '') {
   const files = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith('.')) continue;
-    const absolutePath = join(dir, entry.name);
-    const relativePath = prefix ? join(prefix, entry.name) : entry.name;
+    const entryPath = join(dir, entry.name);
+    const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
-      files.push(...listMarkdownFiles(absolutePath, relativePath));
+      files.push(...listMarkdownFiles(entryPath, relativePath));
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
       files.push(relativePath);
     }
@@ -62,8 +74,9 @@ export function initializeWiki(rootDir = process.cwd()) {
   const wikiRoot = getWikiRoot(rootDir);
   const files = [
     [join(wikiRoot, 'README.md'), WIKI_README],
-    [join(wikiRoot, RAW_DIR, 'README.md'), RAW_WIKI_README],
-    [join(wikiRoot, PROCESSED_DIR, 'README.md'), PROCESSED_WIKI_README],
+    [join(wikiRoot, INBOX_DIR, 'README.md'), INBOX_WIKI_README],
+    [join(wikiRoot, KNOWLEDGE_DIR, 'README.md'), KNOWLEDGE_WIKI_README],
+    [join(wikiRoot, KNOWLEDGE_DIR, 'index.md'), KNOWLEDGE_INDEX],
   ];
   const createdPaths = [];
 
@@ -91,7 +104,7 @@ function resolveWikiFilePath(filename, rootDir = process.cwd()) {
 }
 
 export function makeWikiCommand() {
-  const wiki = new Command('wiki').description('Manage local wiki files for raw notes and processed audit logs');
+  const wiki = new Command('wiki').description('Manage local wiki files for inbox inputs and structured knowledge');
 
   wiki
     .command('list')
@@ -115,7 +128,7 @@ export function makeWikiCommand() {
 
   wiki
     .command('show <filename>')
-    .description('Show the content of a wiki file, including nested raw/ or processed/ paths')
+    .description('Show the content of a wiki file, including nested inbox/ or knowledge/ paths')
     .action((filename) => {
       try {
         const filePath = resolveWikiFilePath(filename);

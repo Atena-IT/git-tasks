@@ -73,49 +73,132 @@ test('wiki --help shows subcommands', () => {
   assert.ok(result.stdout.includes('show'));
 });
 
-test('init creates git-tasks-branded README content at git repo root', () => {
+test('init creates git-tasks-branded inbox and knowledge wiki content at git repo root', async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-init-'));
   spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
 
-  const result = run(['init'], { cwd });
-  const readme = fs.readFileSync(join(cwd, 'wiki', 'README.md'), 'utf8');
-  const rawReadme = fs.readFileSync(join(cwd, 'wiki', 'raw', 'README.md'), 'utf8');
-  const processedReadme = fs.readFileSync(join(cwd, 'wiki', 'processed', 'README.md'), 'utf8');
+  try {
+    const result = run(['init'], { cwd });
+    const readme = fs.readFileSync(join(cwd, 'wiki', 'README.md'), 'utf8');
+    const inboxReadme = fs.readFileSync(join(cwd, 'wiki', 'inbox', 'README.md'), 'utf8');
+    const knowledgeReadme = fs.readFileSync(join(cwd, 'wiki', 'knowledge', 'README.md'), 'utf8');
+    const knowledgeIndex = fs.readFileSync(join(cwd, 'wiki', 'knowledge', 'index.md'), 'utf8');
 
-  assert.equal(result.status, 0);
-  assert.ok(readme.includes('managed by git-tasks'));
-  assert.ok(readme.includes('wiki/raw/'));
-  assert.ok(rawReadme.includes('unprocessed inputs'));
-  assert.ok(processedReadme.includes('append-only'));
+    assert.equal(result.status, 0);
+    assert.ok(readme.includes('managed by git-tasks'));
+    assert.ok(readme.includes('wiki/inbox/'));
+    assert.ok(readme.includes('wiki/knowledge/index.md'));
+    assert.ok(inboxReadme.includes('unmodified incoming material'));
+    assert.ok(knowledgeReadme.includes('durable knowledge nodes'));
+    assert.ok(knowledgeReadme.includes('dash-case frontmatter'));
+    assert.ok(knowledgeIndex.includes('Knowledge Index'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
 });
 
-test('init fails outside a git repository root', () => {
+test('init fails outside a git repository root', async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-init-invalid-'));
-  const result = run(['init'], { cwd });
 
-  assert.equal(result.status, 1);
-  assert.ok(result.stderr.includes('git-tasks init must be run from the root of a git repository.'));
+  try {
+    const result = run(['init'], { cwd });
+
+    assert.equal(result.status, 1);
+    assert.ok(result.stderr.includes('git-tasks init must be run from the root of a git repository.'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
 });
 
-test('epic create --help shows options', () => {
+test('init --help shows owner and reviewer options', () => {
+  const result = run(['init', '--help']);
+  assert.equal(result.status, 0);
+  assert.ok(result.stdout.includes('--owner'));
+  assert.ok(result.stdout.includes('--reviewer') || result.stdout.includes('-r'));
+});
+
+test('init creates repo config with owner, reviewers, and planning horizons', async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-config-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+
+  try {
+    const result = run(['init', '--owner', 'octocat', '--reviewer', 'hubot', '--reviewer', 'octocat'], { cwd });
+    const config = JSON.parse(fs.readFileSync(join(cwd, '.git-tasks', 'config.json'), 'utf8'));
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(config.owner, 'octocat');
+    assert.deepEqual(config.defaultReviewers, ['hubot', 'octocat']);
+    assert.deepEqual(config.planningHorizons, {
+      storyMaxDays: 1,
+      sprintMaxDays: 3,
+      epicMaxWeeks: 2,
+    });
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('init keeps existing config unchanged when rerun without flags', async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-config-idempotent-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+
+  try {
+    run(['init', '--owner', 'octocat', '--reviewer', 'hubot'], { cwd });
+
+    const configPath = join(cwd, '.git-tasks', 'config.json');
+    const before = fs.readFileSync(configPath, 'utf8');
+    const result = run(['init'], { cwd });
+    const after = fs.readFileSync(configPath, 'utf8');
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(after, before);
+    assert.ok(result.stdout.includes('already initialized'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('init updates existing config when new reviewer flags are passed', async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-config-update-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+
+  try {
+    run(['init', '--owner', 'octocat', '--reviewer', 'hubot'], { cwd });
+
+    const result = run(['init', '--reviewer', 'mona'], { cwd });
+    const config = JSON.parse(fs.readFileSync(join(cwd, '.git-tasks', 'config.json'), 'utf8'));
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(config.owner, 'octocat');
+    assert.deepEqual(config.defaultReviewers, ['hubot', 'mona']);
+    assert.ok(result.stdout.includes('Updated git-tasks config'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('epic create --help shows planning and knowledge options', () => {
   const result = run(['epic', 'create', '--help']);
   assert.equal(result.status, 0);
   assert.ok(result.stdout.includes('--description') || result.stdout.includes('-d'));
   assert.ok(result.stdout.includes('--points') || result.stdout.includes('-p'));
+  assert.ok(result.stdout.includes('--knowledge') || result.stdout.includes('-k'));
 });
 
-test('sprint create --help shows --epic option', () => {
+test('sprint create --help shows --epic and --knowledge options', () => {
   const result = run(['sprint', 'create', '--help']);
   assert.equal(result.status, 0);
   assert.ok(result.stdout.includes('--epic') || result.stdout.includes('-e'));
+  assert.ok(result.stdout.includes('--knowledge') || result.stdout.includes('-k'));
 });
 
-test('story create --help shows --sprint and --epic options', () => {
+test('story create --help shows sprint, epic, priority, and knowledge options', () => {
   const result = run(['story', 'create', '--help']);
   assert.equal(result.status, 0);
   assert.ok(result.stdout.includes('--sprint') || result.stdout.includes('-s'));
   assert.ok(result.stdout.includes('--epic') || result.stdout.includes('-e'));
   assert.ok(result.stdout.includes('--priority'));
+  assert.ok(result.stdout.includes('--knowledge') || result.stdout.includes('-k'));
 });
 
 test('epic create requires explicit planning metadata', () => {
@@ -136,11 +219,12 @@ test('story create requires sprint, epic, description, points, and priority', ()
   assert.ok(result.stderr.includes('--priority'));
 });
 
-test('story update --help shows lifecycle and reviewer options', () => {
+test('story update --help shows lifecycle, reviewer, and knowledge options', () => {
   const result = run(['story', 'update', '--help']);
   assert.equal(result.status, 0);
   assert.ok(result.stdout.includes('ready-for-review'));
   assert.ok(result.stdout.includes('--reviewer') || result.stdout.includes('-r'));
+  assert.ok(result.stdout.includes('--knowledge') || result.stdout.includes('-k'));
 });
 
 test('skill install copies canonical skill into requested targets', async () => {
@@ -183,43 +267,63 @@ test('agent skill is packaged in the installable repo layout', () => {
   assert.match(skill, /^---\r?\nname: git-tasks\r?\ndescription:/);
   assert.ok(skill.includes('git-tasks overview --depth 2'));
   assert.ok(skill.includes('few hours to one day'));
-  assert.ok(skill.includes('wiki/raw/'));
-  assert.ok(skill.includes('append-only'));
+  assert.ok(skill.includes('wiki/inbox/'));
+  assert.ok(skill.includes('wiki/knowledge/index.md'));
+  assert.ok(skill.includes('Knowledge Links'));
   assert.ok(skill.includes('allowed-tools:'));
   assert.ok(skill.includes('hidden: true'));
+  assert.equal(fs.existsSync(join(REPO_ROOT, 'skills', 'git-tasks', 'evals', 'evals.json')), false);
+  assert.equal(fs.existsSync(join(REPO_ROOT, 'skills', 'git-tasks-workspace')), false);
+  assert.equal(fs.existsSync(join(REPO_ROOT, 'test', 'evals', 'git-tasks.evals.json')), true);
 });
 
-test('wiki list warns with the renamed command when wiki is missing', () => {
+test('wiki list warns with the renamed command when wiki is missing', async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-list-'));
-  const result = run(['wiki', 'list'], { cwd });
 
-  assert.equal(result.status, 0);
-  assert.ok(result.stdout.includes('Run: git-tasks init'));
+  try {
+    const result = run(['wiki', 'list'], { cwd });
+
+    assert.equal(result.status, 0);
+    assert.ok(result.stdout.includes('Run: git-tasks init'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
 });
 
-test('wiki list shows nested raw and processed markdown files', () => {
+test('wiki list shows nested inbox and knowledge markdown files', async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-list-'));
   spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
-  run(['init'], { cwd });
-  fs.writeFileSync(join(cwd, 'wiki', 'raw', 'meeting-notes.md'), '# Raw\n');
-  fs.writeFileSync(join(cwd, 'wiki', 'processed', '2026-04-23T09-54-02Z-plan.md'), '# Processed\n');
 
-  const result = run(['wiki', 'list'], { cwd });
+  try {
+    run(['init'], { cwd });
+    fs.writeFileSync(join(cwd, 'wiki', 'inbox', 'meeting-notes.md'), '# Inbox\n');
+    fs.writeFileSync(join(cwd, 'wiki', 'knowledge', 'auth-plan.md'), '# Knowledge\n');
 
-  assert.equal(result.status, 0);
-  assert.ok(result.stdout.includes('raw/meeting-notes.md'));
-  assert.ok(result.stdout.includes('processed/2026-04-23T09-54-02Z-plan.md'));
+    const result = run(['wiki', 'list'], { cwd });
+
+    assert.equal(result.status, 0);
+    assert.ok(result.stdout.includes('inbox/meeting-notes.md'));
+    assert.ok(result.stdout.includes('knowledge/index.md'));
+    assert.ok(result.stdout.includes('knowledge/auth-plan.md'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
 });
 
-test('wiki show rejects paths outside wiki/', () => {
+test('wiki show rejects paths outside wiki/', async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-show-'));
   spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
-  run(['init'], { cwd });
 
-  const result = run(['wiki', 'show', '../package'], { cwd });
+  try {
+    run(['init'], { cwd });
 
-  assert.equal(result.status, 1);
-  assert.ok(result.stderr.includes('Wiki paths must stay inside the wiki/ directory.'));
+    const result = run(['wiki', 'show', '../package'], { cwd });
+
+    assert.equal(result.status, 1);
+    assert.ok(result.stderr.includes('Wiki paths must stay inside the wiki/ directory.'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
 });
 
 test('parseIssueTitle correctly identifies epics', async () => {
@@ -282,8 +386,10 @@ test('format helpers and templates render expected project data', async () => {
   assert.ok(formatIssueDetail(issue, { comments: true }).includes('Looks good'));
   assert.ok(formatOverview([{ ...issue, sprints: [{ number: 2, title: 'sprint(#1): Sprint 1', state: 'OPEN', stories: [{ number: 3, title: 'story(#2): Story', state: 'OPEN' }] }] }], { depth: 3 }).includes('#3'));
   assert.ok(epicTemplate({ description: 'Ship auth', points: 13 }).includes('Ship auth'));
+  assert.ok(epicTemplate({ knowledgeLinks: ['wiki/knowledge/auth-plan.md'] }).includes('Knowledge Links:** wiki/knowledge/auth-plan.md'));
   assert.ok(sprintTemplate({ epicNumber: 1, points: 5 }).includes('#1'));
   assert.ok(storyTemplate({ sprintNumber: 2, epicNumber: 1, priority: 'high' }).includes('Priority:** high'));
+  assert.ok(storyTemplate({ knowledgeLinks: ['wiki/knowledge/auth-plan.md'] }).includes('Knowledge Links:** wiki/knowledge/auth-plan.md'));
   assert.ok(storyTemplate({ sprintNumber: 2 }).includes('Linked PR'));
 
   const out = [];
@@ -300,19 +406,43 @@ test('format helpers and templates render expected project data', async () => {
   assert.ok(out[1].includes('done'));
 });
 
-test('metadata helpers normalize lifecycle status and reviewer lists', async () => {
+test('metadata helpers normalize lifecycle status, reviewers, and knowledge links', async () => {
   const {
     getMetadataField,
     normalizeLifecycleStatus,
+    parseMetadataList,
     parseReviewerList,
     setMetadataField,
+    setMetadataListField,
   } = await import('../src/utils/metadata.js');
 
   const body = setMetadataField('## Metadata\n- **Status:** open\n', 'Linked PR', 'https://example.com/pull/12');
+  const withKnowledge = setMetadataListField(body, 'Knowledge Links', ['wiki/knowledge/auth-plan.md', 'wiki/knowledge/auth-plan.md', 'wiki/knowledge/sso-plan.md']);
   assert.equal(getMetadataField(body, 'Linked PR'), 'https://example.com/pull/12');
+  assert.equal(getMetadataField(withKnowledge, 'Knowledge Links'), 'wiki/knowledge/auth-plan.md, wiki/knowledge/sso-plan.md');
   assert.equal(normalizeLifecycleStatus('running'), 'in-progress');
   assert.equal(normalizeLifecycleStatus('ready'), 'ready-for-review');
   assert.deepEqual(parseReviewerList(['octocat,hubot', 'octocat']), ['octocat', 'hubot']);
+  assert.deepEqual(parseMetadataList([null, 'wiki/knowledge/auth-plan.md, wiki/knowledge/sso-plan.md']), ['wiki/knowledge/auth-plan.md', 'wiki/knowledge/sso-plan.md']);
+});
+
+test('config helpers return defaults when the repo config is missing', async () => {
+  const { loadConfig } = await import('../src/utils/config.js');
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-config-defaults-'));
+
+  try {
+    assert.deepEqual(loadConfig(cwd), {
+      owner: '',
+      defaultReviewers: [],
+      planningHorizons: {
+        storyMaxDays: 1,
+        sprintMaxDays: 3,
+        epicMaxWeeks: 2,
+      },
+    });
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
 });
 
 test('applyStoryLifecycle requires reviewers before ready-for-review', async () => {
@@ -327,6 +457,314 @@ test('applyStoryLifecycle requires reviewers before ready-for-review', async () 
     applyStoryLifecycle(42, { status: 'ready-for-review', backend }),
     /requires at least one reviewer/,
   );
+});
+
+test('applyStoryLifecycle falls back to repo owner when config reviewers are not set', async () => {
+  const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
+  const { saveConfig } = await import('../src/utils/config.js');
+  const rootDir = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-review-owner-'));
+  saveConfig({ owner: 'octocat' }, rootDir);
+
+  try {
+    const story = {
+      number: 42,
+      title: 'story(#7): Implement login',
+      state: 'OPEN',
+      body: '## Metadata\n- **Status:** open\n',
+      labels: [{ name: 'user-story' }, { name: 'status:open' }],
+    };
+    const basePullRequest = {
+      number: 88,
+      title: story.title,
+      body: 'Refs #42',
+      url: 'https://example.com/pull/88',
+      isDraft: true,
+    };
+    let requestedReviewers = [];
+    let markedReady = false;
+
+    const backend = {
+      async viewIssue() {
+        return structuredClone(story);
+      },
+      async listPullRequests() {
+        return [structuredClone(basePullRequest)];
+      },
+      async markPullRequestReady() {
+        markedReady = true;
+        return { ...basePullRequest, isDraft: false };
+      },
+      async requestPullRequestReview(number, { reviewers }) {
+        requestedReviewers = reviewers;
+        return { ...basePullRequest, number, isDraft: false };
+      },
+      async editIssue(number, edits) {
+        return {
+          ...story,
+          number,
+          body: edits.body,
+          state: 'OPEN',
+          labels: [{ name: 'user-story' }, { name: 'status:ready-for-review' }],
+        };
+      },
+    };
+
+    const { pullRequest } = await applyStoryLifecycle(42, {
+      status: 'ready-for-review',
+      backend,
+      rootDir,
+    });
+
+    assert.equal(markedReady, true);
+    assert.deepEqual(requestedReviewers, ['octocat']);
+    assert.equal(pullRequest.number, 88);
+  } finally {
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('applyStoryLifecycle prefers explicit reviewers, then env reviewers, before repo config', async () => {
+  const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
+  const { saveConfig } = await import('../src/utils/config.js');
+  const rootDir = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-review-precedence-'));
+  const previousEnvReviewers = process.env.GIT_TASKS_REVIEWERS;
+  saveConfig({ owner: 'octocat', defaultReviewers: ['config-reviewer'] }, rootDir);
+  process.env.GIT_TASKS_REVIEWERS = 'env-reviewer';
+
+  const story = {
+    number: 42,
+    title: 'story(#7): Implement login',
+    state: 'OPEN',
+    body: '## Metadata\n- **Status:** open\n',
+    labels: [{ name: 'user-story' }, { name: 'status:open' }],
+  };
+  const basePullRequest = {
+    number: 88,
+    title: story.title,
+    body: 'Refs #42',
+    url: 'https://example.com/pull/88',
+    isDraft: true,
+  };
+  let requestedReviewers = [];
+
+  const backend = {
+    async viewIssue() {
+      return structuredClone(story);
+    },
+    async listPullRequests() {
+      return [structuredClone(basePullRequest)];
+    },
+    async markPullRequestReady() {
+      return { ...basePullRequest, isDraft: false };
+    },
+    async requestPullRequestReview(number, { reviewers }) {
+      requestedReviewers = reviewers;
+      return { ...basePullRequest, number, isDraft: false };
+    },
+    async editIssue(number, edits) {
+      return {
+        ...story,
+        number,
+        body: edits.body,
+        state: 'OPEN',
+        labels: [{ name: 'user-story' }, { name: 'status:ready-for-review' }],
+      };
+    },
+  };
+
+  try {
+    await applyStoryLifecycle(42, {
+      status: 'ready-for-review',
+      reviewers: ['cli-reviewer'],
+      backend,
+      rootDir,
+    });
+    assert.deepEqual(requestedReviewers, ['cli-reviewer']);
+
+    requestedReviewers = [];
+    await applyStoryLifecycle(42, {
+      status: 'ready-for-review',
+      backend,
+      rootDir,
+    });
+    assert.deepEqual(requestedReviewers, ['env-reviewer']);
+  } finally {
+    if (previousEnvReviewers === undefined) {
+      delete process.env.GIT_TASKS_REVIEWERS;
+    } else {
+      process.env.GIT_TASKS_REVIEWERS = previousEnvReviewers;
+    }
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('applyStoryLifecycle syncs knowledge links into an existing story PR', async () => {
+  const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
+  const story = {
+    number: 42,
+    title: 'story(#7): Implement login',
+    state: 'OPEN',
+    body: '## Metadata\n- **Status:** open\n',
+    labels: [{ name: 'user-story' }, { name: 'status:open' }],
+  };
+  const basePullRequest = {
+    number: 88,
+    title: story.title,
+    body: `## Summary\nImplements ${story.title}\n\n## Linked story\nRefs #${story.number}\n`,
+    url: 'https://example.com/pull/88',
+    isDraft: true,
+  };
+  let createdPullRequest = false;
+  let editedPullRequestBody = '';
+
+  const backend = {
+    async viewIssue() {
+      return structuredClone(story);
+    },
+    async listPullRequests() {
+      return [structuredClone(basePullRequest)];
+    },
+    async createPullRequest() {
+      createdPullRequest = true;
+      throw new Error('createPullRequest should not be called when a matching PR already exists');
+    },
+    async editPullRequest(number, { body }) {
+      editedPullRequestBody = body;
+      return { ...basePullRequest, number, body };
+    },
+    async editIssue(number, edits) {
+      return {
+        ...story,
+        number,
+        body: edits.body,
+        state: 'OPEN',
+        labels: [{ name: 'user-story' }, { name: 'status:in-progress' }],
+      };
+    },
+  };
+
+  const { issue, pullRequest } = await applyStoryLifecycle(42, {
+    status: 'in-progress',
+    knowledgeLinks: ['wiki/knowledge/auth-plan.md'],
+    backend,
+  });
+
+  assert.equal(createdPullRequest, false);
+  assert.ok(editedPullRequestBody.includes('## Knowledge context'));
+  assert.ok(editedPullRequestBody.includes('wiki/knowledge/auth-plan.md'));
+  assert.equal(pullRequest.number, 88);
+  assert.ok(pullRequest.body.includes('wiki/knowledge/auth-plan.md'));
+  assert.ok(issue.body.includes('Knowledge Links'));
+  assert.ok(issue.body.includes('wiki/knowledge/auth-plan.md'));
+});
+
+test('applyStoryLifecycle preserves non-managed existing story PR bodies', async () => {
+  const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
+  const story = {
+    number: 42,
+    title: 'story(#7): Implement login',
+    state: 'OPEN',
+    body: '## Metadata\n- **Status:** open\n',
+    labels: [{ name: 'user-story' }, { name: 'status:open' }],
+  };
+  const basePullRequest = {
+    number: 88,
+    title: story.title,
+    body: `## Summary\nImplements ${story.title}\n\n## Linked story\nRefs #${story.number}\n\n## Manual notes\nKeep this reviewer checklist intact.`,
+    url: 'https://example.com/pull/88',
+    isDraft: true,
+  };
+  let editedPullRequestBody = '';
+
+  const backend = {
+    async viewIssue() {
+      return structuredClone(story);
+    },
+    async listPullRequests() {
+      return [structuredClone(basePullRequest)];
+    },
+    async editPullRequest(number, { body }) {
+      editedPullRequestBody = body;
+      return { ...basePullRequest, number, body };
+    },
+    async editIssue(number, edits) {
+      return {
+        ...story,
+        number,
+        body: edits.body,
+        state: 'OPEN',
+        labels: [{ name: 'user-story' }, { name: 'status:in-progress' }],
+      };
+    },
+  };
+
+  const { issue, pullRequest } = await applyStoryLifecycle(42, {
+    status: 'in-progress',
+    knowledgeLinks: ['wiki/knowledge/auth-plan.md'],
+    backend,
+  });
+
+  assert.equal(editedPullRequestBody, '');
+  assert.equal(pullRequest.body, basePullRequest.body);
+  assert.ok(issue.body.includes('Knowledge Links'));
+  assert.ok(issue.body.includes('wiki/knowledge/auth-plan.md'));
+});
+
+test('applyStoryLifecycle merges knowledge links before creating a story PR', async () => {
+  const { applyStoryLifecycle } = await import('../src/automation/lifecycle.js');
+  const story = {
+    number: 42,
+    title: 'story(#7): Implement login',
+    state: 'OPEN',
+    body: '## Metadata\n- **Status:** open\n',
+    labels: [{ name: 'user-story' }, { name: 'status:open' }],
+  };
+  let createdPullRequestBody = '';
+
+  const backend = {
+    async viewIssue() {
+      return structuredClone(story);
+    },
+    async listPullRequests() {
+      return [];
+    },
+    getCurrentBranch() {
+      return 'feature/auth-login';
+    },
+    async createPullRequest({ title, body, head, draft }) {
+      createdPullRequestBody = body;
+      return {
+        number: 88,
+        title,
+        body,
+        head,
+        draft,
+        url: 'https://example.com/pull/88',
+        isDraft: true,
+      };
+    },
+    async editIssue(number, edits) {
+      return {
+        ...story,
+        number,
+        body: edits.body,
+        state: 'OPEN',
+        labels: [{ name: 'user-story' }, { name: 'status:in-progress' }],
+      };
+    },
+  };
+
+  const { issue, pullRequest } = await applyStoryLifecycle(42, {
+    status: 'in-progress',
+    knowledgeLinks: ['wiki/knowledge/auth-plan.md'],
+    backend,
+  });
+
+  assert.equal(pullRequest.number, 88);
+  assert.ok(createdPullRequestBody.includes('## Knowledge context'));
+  assert.ok(createdPullRequestBody.includes('wiki/knowledge/auth-plan.md'));
+  assert.ok(issue.body.includes('Knowledge Links'));
+  assert.ok(issue.body.includes('wiki/knowledge/auth-plan.md'));
 });
 
 test('buildLifecycleEdit updates labels and state consistently', async () => {
@@ -389,11 +827,13 @@ test('cascadeCloseParentsFromIssue closes sprint and epic when all children are 
   assert.equal(issues.get(1).state, 'CLOSED');
 });
 
-test('epic create works with gh issue create stdout output and no unsupported json flag', async () => {
+test('epic create forwards knowledge links through gh issue create output flow', { skip: process.platform === 'win32' }, async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-gh-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
   const ghLog = join(cwd, 'gh.log');
-  const ghPath = join(cwd, 'gh');
-  fs.writeFileSync(ghPath, `#!/usr/bin/env node
+  const ghScriptPath = join(cwd, 'gh.js');
+  const ghPath = join(cwd, process.platform === 'win32' ? 'gh.cmd' : 'gh');
+  fs.writeFileSync(ghScriptPath, `#!/usr/bin/env node
 import fs from 'node:fs';
 const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(args) + '\\n');
@@ -424,10 +864,15 @@ if (args[0] === 'issue' && args[1] === 'view') {
 console.error('Unexpected gh invocation: ' + args.join(' '));
 process.exit(1);
 `);
-  fs.chmodSync(ghPath, 0o755);
+  if (process.platform === 'win32') {
+    fs.writeFileSync(ghPath, `@echo off\r\nnode "%~dp0\\gh.js" %*\r\n`);
+  } else {
+    fs.writeFileSync(ghPath, `#!/usr/bin/env sh\nnode "$(dirname "$0")/gh.js" "$@"\n`);
+    fs.chmodSync(ghPath, 0o755);
+  }
 
   try {
-    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3', '--start', '2026-01-01', '--end', '2026-01-14'], {
+    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3', '--start', '2026-01-01', '--end', '2026-01-14', '--knowledge', 'wiki/knowledge/auth-plan.md'], {
       cwd,
       env: { PATH: `${cwd}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}` },
     });
@@ -442,6 +887,9 @@ process.exit(1);
     assert.ok(issueCreate, 'expected gh issue create to be called');
     assert.ok(issueView, 'expected gh issue view to be called');
     assert.ok(!issueCreate.includes('--json'), 'gh issue create should not receive --json');
+    const bodyArg = issueCreate[issueCreate.indexOf('--body') + 1];
+    assert.ok(bodyArg.includes('Knowledge Links'));
+    assert.ok(bodyArg.includes('wiki/knowledge/auth-plan.md'));
     assert.deepEqual(issueView, ['issue', 'view', '123', '--json', 'number,title,state,body,labels,assignees,createdAt,updatedAt,url']);
   } finally {
     await rm(cwd, { recursive: true, force: true });
