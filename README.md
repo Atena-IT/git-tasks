@@ -79,7 +79,7 @@ Labels created automatically: `epic`, `sprint`, `user-story`
 
 ### Epics
 ```bash
-git-tasks epic create "Title" -d <desc> -p <points> --start <date> --end <date> [-a <user>]
+git-tasks epic create "Title" -d <desc> -p <points> --start <date> --end <date> [-k <wiki/knowledge/file.md>] [-a <user>]
 git-tasks epic list [--state open|closed|all] [--short]
 git-tasks epic show <number> [--comments]
 git-tasks epic update <number> [--title <text>] [--points <n>] [--status open|closed]
@@ -87,7 +87,7 @@ git-tasks epic update <number> [--title <text>] [--points <n>] [--status open|cl
 
 ### Sprints
 ```bash
-git-tasks sprint create "Title" -e <epic> -d <desc> -p <points> --start <date> --end <date> [-a <user>]
+git-tasks sprint create "Title" -e <epic> -d <desc> -p <points> --start <date> --end <date> [-k <wiki/knowledge/file.md>] [-a <user>]
 git-tasks sprint list [--epic <n>] [--state open|closed|all] [--short]
 git-tasks sprint show <number> [--comments]
 git-tasks sprint update <number> [--title <text>] [--status open|closed]

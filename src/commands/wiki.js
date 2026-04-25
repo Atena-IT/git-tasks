@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { existsSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
-import { dirname, join, relative, resolve } from 'path';
+import { dirname, join, relative, resolve, isAbsolute } from 'path';
 import { printError } from '../utils/format.js';
 import chalk from 'chalk';
 
@@ -92,12 +92,16 @@ export function initializeWiki(rootDir = process.cwd()) {
   return { createdPaths, wikiRoot };
 }
 
+export function isWikiPathWithinRoot(wikiRoot, filePath, pathModule = { relative, isAbsolute }) {
+  const relativePath = pathModule.relative(wikiRoot, filePath);
+  return Boolean(relativePath) && !relativePath.startsWith('..') && !pathModule.isAbsolute(relativePath);
+}
+
 function resolveWikiFilePath(filename, rootDir = process.cwd()) {
   const wikiRoot = getWikiRoot(rootDir);
   const requested = filename.endsWith('.md') ? filename : `${filename}.md`;
   const filePath = resolve(wikiRoot, requested);
-  const relativePath = relative(wikiRoot, filePath);
-  if (!relativePath || relativePath.startsWith('..')) {
+  if (!isWikiPathWithinRoot(wikiRoot, filePath)) {
     throw new Error('Wiki paths must stay inside the wiki/ directory.');
   }
   return filePath;

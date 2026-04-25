@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, win32 } from 'path';
 import { rm } from 'node:fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -324,6 +324,19 @@ test('wiki show rejects paths outside wiki/', async () => {
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
+});
+
+test('isWikiPathWithinRoot rejects win32 cross-drive paths', async () => {
+  const { isWikiPathWithinRoot } = await import('../src/commands/wiki.js');
+
+  assert.equal(
+    isWikiPathWithinRoot('C:\\repo\\wiki', 'D:\\tmp\\note.md', win32),
+    false,
+  );
+  assert.equal(
+    isWikiPathWithinRoot('C:\\repo\\wiki', 'C:\\repo\\wiki\\knowledge\\index.md', win32),
+    true,
+  );
 });
 
 test('parseIssueTitle correctly identifies epics', async () => {
@@ -891,6 +904,71 @@ process.exit(1);
     assert.ok(bodyArg.includes('Knowledge Links'));
     assert.ok(bodyArg.includes('wiki/knowledge/auth-plan.md'));
     assert.deepEqual(issueView, ['issue', 'view', '123', '--json', 'number,title,state,body,labels,assignees,createdAt,updatedAt,url']);
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('epic create continues when label creation is not permitted', { skip: process.platform === 'win32' }, async () => {
+  const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-gh-labels-'));
+  spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
+  const ghLog = join(cwd, 'gh.log');
+  const ghScriptPath = join(cwd, 'gh.js');
+  const ghPath = join(cwd, process.platform === 'win32' ? 'gh.cmd' : 'gh');
+  fs.writeFileSync(ghScriptPath, `#!/usr/bin/env node
+import fs from 'node:fs';
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(ghLog)}, JSON.stringify(args) + '\\n');
+if (args[0] === 'label' && args[1] === 'list') {
+  process.stdout.write('[]\\n');
+  process.exit(0);
+}
+if (args[0] === 'label' && args[1] === 'create') {
+  console.error('HTTP 403: Resource not accessible by integration');
+  process.exit(1);
+}
+if (args[0] === 'issue' && args[1] === 'create') {
+  process.stdout.write('https://github.com/Atena-IT/git-tasks/issues/321\\n');
+  process.exit(0);
+}
+if (args[0] === 'issue' && args[1] === 'view') {
+  process.stdout.write(JSON.stringify({
+    number: 321,
+    url: 'https://github.com/Atena-IT/git-tasks/issues/321',
+    title: 'epic: Ship auth',
+    state: 'OPEN',
+    body: 'Test body',
+    labels: [],
+    assignees: [],
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  }));
+  process.exit(0);
+}
+console.error('Unexpected gh invocation: ' + args.join(' '));
+process.exit(1);
+`);
+  if (process.platform === 'win32') {
+    fs.writeFileSync(ghPath, `@echo off\r\nnode "%~dp0\\gh.js" %*\r\n`);
+  } else {
+    fs.writeFileSync(ghPath, `#!/usr/bin/env sh\nnode "$(dirname "$0")/gh.js" "$@"\n`);
+    fs.chmodSync(ghPath, 0o755);
+  }
+
+  try {
+    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3', '--start', '2026-01-01', '--end', '2026-01-14'], {
+      cwd,
+      env: { PATH: `${cwd}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}` },
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.includes('Created epic #321: https://github.com/Atena-IT/git-tasks/issues/321'));
+
+    const commands = fs.readFileSync(ghLog, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    const issueCreate = commands.find((args) => args[0] === 'issue' && args[1] === 'create');
+
+    assert.ok(issueCreate, 'expected gh issue create to be called');
+    assert.ok(!issueCreate.includes('--label'), 'gh issue create should skip labels when they cannot be ensured');
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }

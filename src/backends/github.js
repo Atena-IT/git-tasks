@@ -36,11 +36,25 @@ function extractIssueNumberFromOutput(output) {
   return match[1];
 }
 
+function listExistingLabels() {
+  try {
+    const labels = runGhJSON(['label', 'list', '--json', 'name']);
+    return new Set(labels.map((label) => label.name));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Ensure a label exists in the repo; create it if missing.
  */
 function ensureLabel(name, color, description) {
-  runGh(['label', 'create', name, '--color', color, '--description', description, '--force']);
+  try {
+    runGh(['label', 'create', name, '--color', color, '--description', description, '--force']);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const LABEL_CONFIG = {
@@ -54,18 +68,27 @@ const LABEL_CONFIG = {
 };
 
 function ensureLabels(labels) {
+  const existingLabels = listExistingLabels();
+  const ensuredLabels = [];
   for (const label of labels) {
+    if (existingLabels?.has(label)) {
+      ensuredLabels.push(label);
+      continue;
+    }
     const cfg = LABEL_CONFIG[label] || { color: 'ededed', description: '' };
-    ensureLabel(label, cfg.color, cfg.description);
+    if (ensureLabel(label, cfg.color, cfg.description)) {
+      ensuredLabels.push(label);
+    }
   }
+  return ensuredLabels;
 }
 
 // ─── Issues ──────────────────────────────────────────────────────────────────
 
 export function createIssue({ title, body, labels = [], assignees = [] }) {
-  ensureLabels(labels);
+  const ensuredLabels = ensureLabels(labels);
   const args = ['issue', 'create', '--title', title, '--body', body];
-  for (const l of labels) args.push('--label', l);
+  for (const l of ensuredLabels) args.push('--label', l);
   for (const a of assignees) args.push('--assignee', a);
 
   const output = runGh(args);
