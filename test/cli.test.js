@@ -73,21 +73,21 @@ test('wiki --help shows subcommands', () => {
   assert.ok(result.stdout.includes('show'));
 });
 
-test('init creates git-tasks-branded inbox and knowledge wiki content at git repo root', async () => {
+test('init creates git-tasks-branded inbox and knowledge wiki content inside .git-tasks', async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-init-'));
   spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
 
   try {
     const result = run(['init'], { cwd });
-    const readme = fs.readFileSync(join(cwd, 'wiki', 'README.md'), 'utf8');
-    const inboxReadme = fs.readFileSync(join(cwd, 'wiki', 'inbox', 'README.md'), 'utf8');
-    const knowledgeReadme = fs.readFileSync(join(cwd, 'wiki', 'knowledge', 'README.md'), 'utf8');
-    const knowledgeIndex = fs.readFileSync(join(cwd, 'wiki', 'knowledge', 'index.md'), 'utf8');
+    const readme = fs.readFileSync(join(cwd, '.git-tasks', 'wiki', 'README.md'), 'utf8');
+    const inboxReadme = fs.readFileSync(join(cwd, '.git-tasks', 'wiki', 'inbox', 'README.md'), 'utf8');
+    const knowledgeReadme = fs.readFileSync(join(cwd, '.git-tasks', 'wiki', 'knowledge', 'README.md'), 'utf8');
+    const knowledgeIndex = fs.readFileSync(join(cwd, '.git-tasks', 'wiki', 'knowledge', 'index.md'), 'utf8');
 
     assert.equal(result.status, 0);
     assert.ok(readme.includes('managed by git-tasks'));
-    assert.ok(readme.includes('wiki/inbox/'));
-    assert.ok(readme.includes('wiki/knowledge/index.md'));
+    assert.ok(readme.includes('.git-tasks/wiki/inbox/'));
+    assert.ok(readme.includes('.git-tasks/wiki/knowledge/index.md'));
     assert.ok(inboxReadme.includes('unmodified incoming material'));
     assert.ok(knowledgeReadme.includes('durable knowledge nodes'));
     assert.ok(knowledgeReadme.includes('dash-case frontmatter'));
@@ -267,8 +267,8 @@ test('agent skill is packaged in the installable repo layout', () => {
   assert.match(skill, /^---\r?\nname: git-tasks\r?\ndescription:/);
   assert.ok(skill.includes('git-tasks overview --depth 2'));
   assert.ok(skill.includes('few hours to one day'));
-  assert.ok(skill.includes('wiki/inbox/'));
-  assert.ok(skill.includes('wiki/knowledge/index.md'));
+  assert.ok(skill.includes('.git-tasks/wiki/inbox/'));
+  assert.ok(skill.includes('.git-tasks/wiki/knowledge/index.md'));
   assert.ok(skill.includes('Knowledge Links'));
   assert.ok(skill.includes('allowed-tools:'));
   assert.ok(skill.includes('hidden: true'));
@@ -296,8 +296,8 @@ test('wiki list shows nested inbox and knowledge markdown files', async () => {
 
   try {
     run(['init'], { cwd });
-    fs.writeFileSync(join(cwd, 'wiki', 'inbox', 'meeting-notes.md'), '# Inbox\n');
-    fs.writeFileSync(join(cwd, 'wiki', 'knowledge', 'auth-plan.md'), '# Knowledge\n');
+    fs.writeFileSync(join(cwd, '.git-tasks', 'wiki', 'inbox', 'meeting-notes.md'), '# Inbox\n');
+    fs.writeFileSync(join(cwd, '.git-tasks', 'wiki', 'knowledge', 'auth-plan.md'), '# Knowledge\n');
 
     const result = run(['wiki', 'list'], { cwd });
 
@@ -319,8 +319,8 @@ test('wiki list resolves the repo-root wiki from nested directories', async () =
     const initResult = run(['init'], { cwd });
     assert.equal(initResult.status, 0, initResult.stderr);
     fs.mkdirSync(nestedDir, { recursive: true });
-    assert.equal(fs.existsSync(join(cwd, 'wiki', 'knowledge', 'index.md')), true);
-    fs.writeFileSync(join(cwd, 'wiki', 'knowledge', 'auth-plan.md'), '# Knowledge\n');
+    assert.equal(fs.existsSync(join(cwd, '.git-tasks', 'wiki', 'knowledge', 'index.md')), true);
+    fs.writeFileSync(join(cwd, '.git-tasks', 'wiki', 'knowledge', 'auth-plan.md'), '# Knowledge\n');
 
     const result = run(['wiki', 'list'], { cwd: nestedDir });
 
@@ -332,7 +332,7 @@ test('wiki list resolves the repo-root wiki from nested directories', async () =
   }
 });
 
-test('wiki show rejects paths outside wiki/', async () => {
+test('wiki show rejects paths outside .git-tasks/wiki/', async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-show-'));
   spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
 
@@ -342,7 +342,7 @@ test('wiki show rejects paths outside wiki/', async () => {
     const result = run(['wiki', 'show', '../package'], { cwd });
 
     assert.equal(result.status, 1);
-    assert.ok(result.stderr.includes('Wiki paths must stay inside the wiki/ directory.'));
+    assert.ok(result.stderr.includes('Wiki paths must stay inside the .git-tasks/wiki/ directory.'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
@@ -356,7 +356,7 @@ test('wiki show resolves repo-root files from nested directories', async () => {
   try {
     run(['init'], { cwd });
     fs.mkdirSync(nestedDir, { recursive: true });
-    fs.writeFileSync(join(cwd, 'wiki', 'knowledge', 'auth-plan.md'), '# Auth Plan\n');
+    fs.writeFileSync(join(cwd, '.git-tasks', 'wiki', 'knowledge', 'auth-plan.md'), '# Auth Plan\n');
 
     const result = run(['wiki', 'show', 'knowledge/auth-plan'], { cwd: nestedDir });
 
@@ -367,7 +367,7 @@ test('wiki show resolves repo-root files from nested directories', async () => {
   }
 });
 
-test('wiki show rejects symlink escapes outside wiki/', { skip: process.platform === 'win32' }, async () => {
+test('wiki show rejects symlink escapes outside .git-tasks/wiki/', { skip: process.platform === 'win32' }, async () => {
   const cwd = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-link-'));
   const outsideDir = fs.mkdtempSync(join(os.tmpdir(), 'git-tasks-wiki-outside-'));
   spawnSync('git', ['init'], { cwd, encoding: 'utf8' });
@@ -375,13 +375,13 @@ test('wiki show rejects symlink escapes outside wiki/', { skip: process.platform
 
   try {
     run(['init'], { cwd });
-    await rm(join(cwd, 'wiki', 'knowledge'), { recursive: true, force: true });
-    fs.symlinkSync(outsideDir, join(cwd, 'wiki', 'knowledge'));
+    await rm(join(cwd, '.git-tasks', 'wiki', 'knowledge'), { recursive: true, force: true });
+    fs.symlinkSync(outsideDir, join(cwd, '.git-tasks', 'wiki', 'knowledge'));
 
     const result = run(['wiki', 'show', 'knowledge/secret'], { cwd });
 
     assert.equal(result.status, 1);
-    assert.ok(result.stderr.includes('Wiki paths must stay inside the wiki/ directory.'));
+    assert.ok(result.stderr.includes('Wiki paths must stay inside the .git-tasks/wiki/ directory.'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
     await rm(outsideDir, { recursive: true, force: true });
@@ -461,10 +461,10 @@ test('format helpers and templates render expected project data', async () => {
   assert.ok(formatIssueDetail(issue, { comments: true }).includes('Looks good'));
   assert.ok(formatOverview([{ ...issue, sprints: [{ number: 2, title: 'sprint(#1): Sprint 1', state: 'OPEN', stories: [{ number: 3, title: 'story(#2): Story', state: 'OPEN' }] }] }], { depth: 3 }).includes('#3'));
   assert.ok(epicTemplate({ description: 'Ship auth', points: 13 }).includes('Ship auth'));
-  assert.ok(epicTemplate({ knowledgeLinks: ['wiki/knowledge/auth-plan.md'] }).includes('Knowledge Links:** wiki/knowledge/auth-plan.md'));
+  assert.ok(epicTemplate({ knowledgeLinks: ['.git-tasks/wiki/knowledge/auth-plan.md'] }).includes('Knowledge Links:** .git-tasks/wiki/knowledge/auth-plan.md'));
   assert.ok(sprintTemplate({ epicNumber: 1, points: 5 }).includes('#1'));
   assert.ok(storyTemplate({ sprintNumber: 2, epicNumber: 1, priority: 'high' }).includes('Priority:** high'));
-  assert.ok(storyTemplate({ knowledgeLinks: ['wiki/knowledge/auth-plan.md'] }).includes('Knowledge Links:** wiki/knowledge/auth-plan.md'));
+  assert.ok(storyTemplate({ knowledgeLinks: ['.git-tasks/wiki/knowledge/auth-plan.md'] }).includes('Knowledge Links:** .git-tasks/wiki/knowledge/auth-plan.md'));
   assert.ok(storyTemplate({ sprintNumber: 2 }).includes('Linked PR'));
 
   const out = [];
@@ -492,13 +492,13 @@ test('metadata helpers normalize lifecycle status, reviewers, and knowledge link
   } = await import('../src/utils/metadata.js');
 
   const body = setMetadataField('## Metadata\n- **Status:** open\n', 'Linked PR', 'https://example.com/pull/12');
-  const withKnowledge = setMetadataListField(body, 'Knowledge Links', ['wiki/knowledge/auth-plan.md', 'wiki/knowledge/auth-plan.md', 'wiki/knowledge/sso-plan.md']);
+  const withKnowledge = setMetadataListField(body, 'Knowledge Links', ['.git-tasks/wiki/knowledge/auth-plan.md', '.git-tasks/wiki/knowledge/auth-plan.md', '.git-tasks/wiki/knowledge/sso-plan.md']);
   assert.equal(getMetadataField(body, 'Linked PR'), 'https://example.com/pull/12');
-  assert.equal(getMetadataField(withKnowledge, 'Knowledge Links'), 'wiki/knowledge/auth-plan.md, wiki/knowledge/sso-plan.md');
+  assert.equal(getMetadataField(withKnowledge, 'Knowledge Links'), '.git-tasks/wiki/knowledge/auth-plan.md, .git-tasks/wiki/knowledge/sso-plan.md');
   assert.equal(normalizeLifecycleStatus('running'), 'in-progress');
   assert.equal(normalizeLifecycleStatus('ready'), 'ready-for-review');
   assert.deepEqual(parseReviewerList(['octocat,hubot', 'octocat']), ['octocat', 'hubot']);
-  assert.deepEqual(parseMetadataList([null, 'wiki/knowledge/auth-plan.md, wiki/knowledge/sso-plan.md']), ['wiki/knowledge/auth-plan.md', 'wiki/knowledge/sso-plan.md']);
+  assert.deepEqual(parseMetadataList([null, '.git-tasks/wiki/knowledge/auth-plan.md, .git-tasks/wiki/knowledge/sso-plan.md']), ['.git-tasks/wiki/knowledge/auth-plan.md', '.git-tasks/wiki/knowledge/sso-plan.md']);
 });
 
 test('config helpers return defaults when the repo config is missing', async () => {
@@ -720,17 +720,17 @@ test('applyStoryLifecycle syncs knowledge links into an existing story PR', asyn
 
   const { issue, pullRequest } = await applyStoryLifecycle(42, {
     status: 'in-progress',
-    knowledgeLinks: ['wiki/knowledge/auth-plan.md'],
+    knowledgeLinks: ['.git-tasks/wiki/knowledge/auth-plan.md'],
     backend,
   });
 
   assert.equal(createdPullRequest, false);
   assert.ok(editedPullRequestBody.includes('## Knowledge context'));
-  assert.ok(editedPullRequestBody.includes('wiki/knowledge/auth-plan.md'));
+  assert.ok(editedPullRequestBody.includes('.git-tasks/wiki/knowledge/auth-plan.md'));
   assert.equal(pullRequest.number, 88);
-  assert.ok(pullRequest.body.includes('wiki/knowledge/auth-plan.md'));
+  assert.ok(pullRequest.body.includes('.git-tasks/wiki/knowledge/auth-plan.md'));
   assert.ok(issue.body.includes('Knowledge Links'));
-  assert.ok(issue.body.includes('wiki/knowledge/auth-plan.md'));
+  assert.ok(issue.body.includes('.git-tasks/wiki/knowledge/auth-plan.md'));
 });
 
 test('syncExistingStoryPullRequestContext syncs knowledge links without a lifecycle transition', async () => {
@@ -739,7 +739,7 @@ test('syncExistingStoryPullRequestContext syncs knowledge links without a lifecy
     number: 42,
     title: 'story(#7): Implement login',
     state: 'OPEN',
-    body: '## Metadata\n- **Status:** open\n- **Knowledge Links:** wiki/knowledge/auth-plan.md\n- **Linked PR:** https://example.com/pull/88\n',
+    body: '## Metadata\n- **Status:** open\n- **Knowledge Links:** .git-tasks/wiki/knowledge/auth-plan.md\n- **Linked PR:** https://example.com/pull/88\n',
     labels: [{ name: 'user-story' }, { name: 'status:open' }],
   };
   const basePullRequest = {
@@ -768,7 +768,7 @@ test('syncExistingStoryPullRequestContext syncs knowledge links without a lifecy
 
   assert.equal(pullRequest.number, 88);
   assert.ok(editedPullRequestBody.includes('## Knowledge context'));
-  assert.ok(editedPullRequestBody.includes('wiki/knowledge/auth-plan.md'));
+  assert.ok(editedPullRequestBody.includes('.git-tasks/wiki/knowledge/auth-plan.md'));
 });
 
 test('applyStoryLifecycle preserves non-managed existing story PR bodies', async () => {
@@ -813,14 +813,14 @@ test('applyStoryLifecycle preserves non-managed existing story PR bodies', async
 
   const { issue, pullRequest } = await applyStoryLifecycle(42, {
     status: 'in-progress',
-    knowledgeLinks: ['wiki/knowledge/auth-plan.md'],
+    knowledgeLinks: ['.git-tasks/wiki/knowledge/auth-plan.md'],
     backend,
   });
 
   assert.equal(editedPullRequestBody, '');
   assert.equal(pullRequest.body, basePullRequest.body);
   assert.ok(issue.body.includes('Knowledge Links'));
-  assert.ok(issue.body.includes('wiki/knowledge/auth-plan.md'));
+  assert.ok(issue.body.includes('.git-tasks/wiki/knowledge/auth-plan.md'));
 });
 
 test('applyStoryLifecycle resyncs managed PR bodies after a story rename', async () => {
@@ -919,15 +919,15 @@ test('applyStoryLifecycle merges knowledge links before creating a story PR', as
 
   const { issue, pullRequest } = await applyStoryLifecycle(42, {
     status: 'in-progress',
-    knowledgeLinks: ['wiki/knowledge/auth-plan.md'],
+    knowledgeLinks: ['.git-tasks/wiki/knowledge/auth-plan.md'],
     backend,
   });
 
   assert.equal(pullRequest.number, 88);
   assert.ok(createdPullRequestBody.includes('## Knowledge context'));
-  assert.ok(createdPullRequestBody.includes('wiki/knowledge/auth-plan.md'));
+  assert.ok(createdPullRequestBody.includes('.git-tasks/wiki/knowledge/auth-plan.md'));
   assert.ok(issue.body.includes('Knowledge Links'));
-  assert.ok(issue.body.includes('wiki/knowledge/auth-plan.md'));
+  assert.ok(issue.body.includes('.git-tasks/wiki/knowledge/auth-plan.md'));
 });
 
 test('buildLifecycleEdit updates labels and state consistently', async () => {
@@ -1048,7 +1048,7 @@ process.exit(1);
   }
 
   try {
-    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3', '--start', '2026-01-01', '--end', '2026-01-14', '--knowledge', 'wiki/knowledge/auth-plan.md'], {
+    const result = run(['epic', 'create', 'Ship auth', '-d', 'Test body', '-p', '3', '--start', '2026-01-01', '--end', '2026-01-14', '--knowledge', '.git-tasks/wiki/knowledge/auth-plan.md'], {
       cwd,
       env: { PATH: `${cwd}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}` },
     });
@@ -1065,7 +1065,7 @@ process.exit(1);
     assert.ok(!issueCreate.includes('--json'), 'gh issue create should not receive --json');
     const bodyArg = issueCreate[issueCreate.indexOf('--body') + 1];
     assert.ok(bodyArg.includes('Knowledge Links'));
-    assert.ok(bodyArg.includes('wiki/knowledge/auth-plan.md'));
+    assert.ok(bodyArg.includes('.git-tasks/wiki/knowledge/auth-plan.md'));
     assert.deepEqual(issueView, ['issue', 'view', '123', '--json', 'number,title,state,body,labels,assignees,createdAt,updatedAt,url']);
   } finally {
     await rm(cwd, { recursive: true, force: true });

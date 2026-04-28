@@ -3,38 +3,38 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Use the git-tasks skill to turn the meeting notes into an AI-era plan. Start from the inbox fixture, read wiki/knowledge/index.md first, update or create the right knowledge node with dash-case frontmatter, update the knowledge index, then create or update the right epic, sprint, and stories with explicit dependencies and --knowledge links.",
-      "expected_output": "Reads test/evals/fixtures/raw-meeting-notes.md alongside the knowledge index, writes or references wiki/inbox content, updates wiki/knowledge/index.md and a structured knowledge node before backlog changes, then decomposes the work into agent-sized epic/sprint/story items that respect the repo planning horizons and store Knowledge Links.",
+      "prompt": "Use the git-tasks skill to turn the meeting notes into an AI-era plan. Start from the inbox fixture, read .git-tasks/wiki/knowledge/index.md first, update or create the right knowledge node with dash-case frontmatter, update the knowledge index, then create or update the right epic, sprint, and stories with explicit dependencies and --knowledge links.",
+      "expected_output": "Reads test/evals/fixtures/raw-meeting-notes.md alongside the knowledge index, writes or references .git-tasks/wiki/inbox content, updates .git-tasks/wiki/knowledge/index.md and a structured knowledge node before backlog changes, then decomposes the work into agent-sized epic/sprint/story items that respect the repo planning horizons and store Knowledge Links.",
       "files": [
         "test/evals/fixtures/raw-meeting-notes.md",
         "test/evals/fixtures/knowledge-index.md",
         "test/evals/fixtures/knowledge-auth-plan.md"
       ],
       "expectations": [
-        "Consults `wiki/knowledge/index.md` before proposing specific knowledge-node or backlog changes.",
+        "Consults `.git-tasks/wiki/knowledge/index.md` before proposing specific knowledge-node or backlog changes.",
         "Proposes a structured knowledge-node update or creation with dash-case fields including `timestamp`, `issue-refs`, and `neighbours`.",
         "Proposes epic, sprint, and story backlog actions only after the knowledge-layer update and includes `--knowledge` links on backlog commands."
       ]
     },
     {
       "id": 2,
-      "prompt": "Assume the user dropped new inbound notes into the inbox, but the new information only clarifies an existing knowledge node and does not change the backlog. Read the fixture, read wiki/knowledge/index.md first, update the relevant knowledge node and the index if needed, and stop there instead of creating or updating issues, branches, or pull requests.",
-      "expected_output": "Uses test/evals/fixtures/raw-feature-request.md as inbox input, reuses existing knowledge from the index, updates a structured wiki/knowledge record that includes timestamp, issue-refs, and neighbours, and deliberately avoids issue, branch, and pull-request CRUD because there is no planning delta.",
+      "prompt": "Assume the user dropped new inbound notes into the inbox, but the new information only clarifies an existing knowledge node and does not change the backlog. Read the fixture, read .git-tasks/wiki/knowledge/index.md first, update the relevant knowledge node and the index if needed, and stop there instead of creating or updating issues, branches, or pull requests.",
+      "expected_output": "Uses test/evals/fixtures/raw-feature-request.md as inbox input, reuses existing knowledge from the index, updates a structured .git-tasks/wiki/knowledge record that includes timestamp, issue-refs, and neighbours, and deliberately avoids issue, branch, and pull-request CRUD because there is no planning delta.",
       "files": [
         "test/evals/fixtures/raw-feature-request.md",
         "test/evals/fixtures/knowledge-index.md",
         "test/evals/fixtures/knowledge-auth-plan.md"
       ],
       "expectations": [
-        "Uses `wiki/knowledge/index.md` and the existing knowledge node to refine durable knowledge instead of starting from scratch.",
+        "Uses `.git-tasks/wiki/knowledge/index.md` and the existing knowledge node to refine durable knowledge instead of starting from scratch.",
         "States explicitly that there is no issue, branch, or pull-request CRUD because the backlog does not change.",
         "Keeps the response in the knowledge layer, with no proposed epic/sprint/story create-update commands."
       ]
     },
     {
       "id": 3,
-      "prompt": "Move an in-progress story to ready-for-review in a repo that already ran git-tasks init with owner and reviewer defaults and that links the story to one or more wiki/knowledge docs. Make sure the review handoff uses the repo contract and preserves the linked knowledge context for reviewers.",
-      "expected_output": "Reads .git-tasks/config.json, promotes the linked draft PR, requests review from defaultReviewers or owner when explicit reviewers are not supplied, and carries wiki/knowledge context through the story review handoff.",
+      "prompt": "Move an in-progress story to ready-for-review in a repo that already ran git-tasks init with owner and reviewer defaults and that links the story to one or more .git-tasks/wiki/knowledge docs. Make sure the review handoff uses the repo contract and preserves the linked knowledge context for reviewers.",
+      "expected_output": "Reads .git-tasks/config.json, promotes the linked draft PR, requests review from defaultReviewers or owner when explicit reviewers are not supplied, and carries .git-tasks/wiki/knowledge context through the story review handoff.",
       "files": [
         "test/evals/fixtures/knowledge-auth-plan.md"
       ],
@@ -46,8 +46,8 @@
     },
     {
       "id": 4,
-      "prompt": "The repo still contains legacy wiki/raw and wiki/processed material from before the knowledge rename. Use those legacy files for historical context, but if the new information changes durable understanding, write forward into wiki/inbox and wiki/knowledge/index.md rather than extending the old directories.",
-      "expected_output": "Reads legacy raw/processed-style fixtures for context, treats them as historical inputs only, and writes any new durable knowledge into the inbox/knowledge model with an updated wiki/knowledge/index.md entry before applying planning changes.",
+      "prompt": "The repo still contains legacy wiki/raw and wiki/processed material from before the knowledge rename. Use those legacy files for historical context, but if the new information changes durable understanding, write forward into .git-tasks/wiki/inbox and .git-tasks/wiki/knowledge/index.md rather than extending the old directories.",
+      "expected_output": "Reads legacy raw/processed-style fixtures for context, treats them as historical inputs only, and writes any new durable knowledge into the inbox/knowledge model with an updated .git-tasks/wiki/knowledge/index.md entry before applying planning changes.",
       "files": [
         "test/evals/fixtures/raw-meeting-notes.md",
         "test/evals/fixtures/legacy-processed-auth-plan.md",
@@ -55,7 +55,7 @@
       ],
       "expectations": [
         "Treats `wiki/raw/` and `wiki/processed/` as historical context only.",
-        "Writes any new durable understanding forward into `wiki/inbox/`, `wiki/knowledge/`, or `wiki/knowledge/index.md` rather than extending legacy directories.",
+        "Writes any new durable understanding forward into `.git-tasks/wiki/inbox/`, `.git-tasks/wiki/knowledge/`, or `.git-tasks/wiki/knowledge/index.md` rather than extending legacy directories.",
         "If planning changes are proposed, ties them to the new knowledge artifact instead of to legacy raw/processed files."
       ]
     }

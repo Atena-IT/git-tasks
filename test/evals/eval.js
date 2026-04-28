@@ -40,10 +40,10 @@ test('eval harness smoke-tests repo bootstrap and wiki knowledge flow', async ()
 
     const inboxFixture = fs.readFileSync(join(REPO_ROOT, 'test', 'evals', 'fixtures', 'raw-meeting-notes.md'), 'utf8');
     const knowledgeFixture = fs.readFileSync(join(REPO_ROOT, 'test', 'evals', 'fixtures', 'knowledge-auth-plan.md'), 'utf8');
-    fs.writeFileSync(join(cwd, 'wiki', 'inbox', 'meeting-notes.md'), inboxFixture);
-    fs.writeFileSync(join(cwd, 'wiki', 'knowledge', 'auth-plan.md'), knowledgeFixture, 'utf8');
+    fs.writeFileSync(join(cwd, '.git-tasks', 'wiki', 'inbox', 'meeting-notes.md'), inboxFixture);
+    fs.writeFileSync(join(cwd, '.git-tasks', 'wiki', 'knowledge', 'auth-plan.md'), knowledgeFixture, 'utf8');
     fs.appendFileSync(
-      join(cwd, 'wiki', 'knowledge', 'index.md'),
+      join(cwd, '.git-tasks', 'wiki', 'knowledge', 'index.md'),
       '- `2026-04-23T09:54:02Z | decision | [Split auth rollout into reviewable stories](auth-plan.md) — Break the auth work into agent-sized stories with clear review handoff.`\n',
       'utf8',
     );
@@ -71,8 +71,8 @@ test('shipped skill documents repo config, knowledge index, and lifecycle bounda
   assert.ok(skill.includes('planningHorizons'));
   assert.ok(skill.includes('defaultReviewers'));
   assert.ok(skill.includes('owner'));
-  assert.ok(skill.includes('wiki/inbox/'));
-  assert.ok(skill.includes('wiki/knowledge/index.md'));
+  assert.ok(skill.includes('.git-tasks/wiki/inbox/'));
+  assert.ok(skill.includes('.git-tasks/wiki/knowledge/index.md'));
   assert.ok(skill.includes('timestamp'));
   assert.ok(skill.includes('neighbours'));
   assert.ok(skill.includes('issue-refs'));

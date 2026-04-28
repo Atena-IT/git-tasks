@@ -3,6 +3,8 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from
 import { dirname, resolve } from 'path';
 import { parseReviewerList } from './metadata.js';
 
+export const GIT_TASKS_DIR = '.git-tasks';
+
 export const DEFAULT_PLANNING_HORIZONS = Object.freeze({
   storyMaxDays: 1,
   sprintMaxDays: 3,
@@ -48,9 +50,13 @@ export function resolveRepositoryRoot(rootDir = process.cwd()) {
   }
 }
 
-export function getConfigPath(rootDir = process.cwd()) {
+export function getGitTasksRoot(rootDir = process.cwd()) {
   const repoRoot = resolveRepositoryRoot(rootDir) || resolve(rootDir);
-  return resolve(repoRoot, '.git-tasks', 'config.json');
+  return resolve(repoRoot, GIT_TASKS_DIR);
+}
+
+export function getConfigPath(rootDir = process.cwd()) {
+  return resolve(getGitTasksRoot(rootDir), 'config.json');
 }
 
 export function loadConfig(rootDir = process.cwd()) {

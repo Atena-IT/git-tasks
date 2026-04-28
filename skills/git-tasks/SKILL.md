@@ -21,10 +21,10 @@ gh pr list
 
 - Ensure `gh auth status` succeeds.
 - Prefer `--short` output unless you need full issue bodies or comments.
-- Run `git-tasks init` at the repository root if `wiki/` is missing.
+- Run `git-tasks init` at the repository root if `.git-tasks/wiki/` is missing.
 - If `.git-tasks/config.json` exists, read it before planning. Use `planningHorizons` as repo-specific sizing guidance and `defaultReviewers` (or `owner`) as the default review handoff target.
-- If `wiki/knowledge/index.md` exists, read it before opening individual knowledge nodes.
-- If the repo still has legacy `wiki/raw/` or `wiki/processed/` content, it is fine to read it for historical context, but write new material into `wiki/inbox/` and `wiki/knowledge/`.
+- If `.git-tasks/wiki/knowledge/index.md` exists, read it before opening individual knowledge nodes.
+- If the repo still has legacy `wiki/raw/` or `wiki/processed/` content, it is fine to read it for historical context, but write new material into `.git-tasks/wiki/inbox/` and `.git-tasks/wiki/knowledge/`.
 - If the repo is being initialized for the first time, prefer `git-tasks init --owner <user> --reviewer <user>` so the repo contract is explicit from the start.
 - Start with `git-tasks overview --depth 2` before drilling into individual issues.
 - Install the skill anywhere with `npx @atena-reply/git-tasks skill install --target all`.
@@ -40,15 +40,15 @@ gh pr list
 ## Recommended workflow
 
 1. Initialize the repository once with `git-tasks init`.
-2. If the user gives you notes in chat or hands you uploaded files, capture the inbound material in `wiki/inbox/` first.
-3. If inbound material is already on disk, treat `wiki/inbox/` as the intake layer and preserve the source wording there.
-4. Read `wiki/knowledge/index.md` before planning so you reuse or refine existing knowledge instead of creating duplicates.
-5. Update or create knowledge nodes in `wiki/knowledge/` only when durable understanding changes.
+2. If the user gives you notes in chat or hands you uploaded files, capture the inbound material in `.git-tasks/wiki/inbox/` first.
+3. If inbound material is already on disk, treat `.git-tasks/wiki/inbox/` as the intake layer and preserve the source wording there.
+4. Read `.git-tasks/wiki/knowledge/index.md` before planning so you reuse or refine existing knowledge instead of creating duplicates.
+5. Update or create knowledge nodes in `.git-tasks/wiki/knowledge/` only when durable understanding changes.
 6. After the knowledge layer is current, inspect and update epics, sprints, and stories.
 7. Use issue `Knowledge Links` metadata whenever backlog items are tied to specific knowledge docs.
 8. Use `show` only when you need full body text or comments.
 
-Keep `wiki/knowledge/` flat. The semantic kind belongs in frontmatter `type`, not in subdirectories.
+Keep `.git-tasks/wiki/knowledge/` flat. The semantic kind belongs in frontmatter `type`, not in subdirectories.
 Use dash-case frontmatter keys. A practical minimum is:
 - `id`
 - `type`
@@ -73,9 +73,9 @@ Keep the body focused on human-readable reasoning. Each knowledge node should no
 ### Create
 
 ```bash
-git-tasks epic create "Epic title" -d "description" -p 13 --start YYYY-MM-DD --end YYYY-MM-DD --knowledge wiki/knowledge/example.md
-git-tasks sprint create "Sprint title" --epic <n> -d "description" -p 8 --start YYYY-MM-DD --end YYYY-MM-DD --knowledge wiki/knowledge/example.md
-git-tasks story create "Story title" --sprint <n> --epic <n> -d "description" -p 3 --priority high -a <username> --knowledge wiki/knowledge/example.md
+git-tasks epic create "Epic title" -d "description" -p 13 --start YYYY-MM-DD --end YYYY-MM-DD --knowledge .git-tasks/wiki/knowledge/example.md
+git-tasks sprint create "Sprint title" --epic <n> -d "description" -p 8 --start YYYY-MM-DD --end YYYY-MM-DD --knowledge .git-tasks/wiki/knowledge/example.md
+git-tasks story create "Story title" --sprint <n> --epic <n> -d "description" -p 3 --priority high -a <username> --knowledge .git-tasks/wiki/knowledge/example.md
 ```
 
 ### Inspect
@@ -92,9 +92,9 @@ git-tasks story show <n>
 ### Update
 
 ```bash
-git-tasks epic update <n> --status closed --knowledge wiki/knowledge/example.md
-git-tasks sprint update <n> --status closed --knowledge wiki/knowledge/example.md
-git-tasks story update <n> --status in-progress --knowledge wiki/knowledge/example.md
+git-tasks epic update <n> --status closed --knowledge .git-tasks/wiki/knowledge/example.md
+git-tasks sprint update <n> --status closed --knowledge .git-tasks/wiki/knowledge/example.md
+git-tasks story update <n> --status in-progress --knowledge .git-tasks/wiki/knowledge/example.md
 git-tasks story update <n> --status ready-for-review --reviewer octocat
 git-tasks story update <n> --status closed
 git-tasks story update <n> -a <username>
@@ -117,8 +117,8 @@ git-tasks wiki show knowledge/index
 
 ## Lifecycle boundaries and output guidance
 
-- Read `wiki/knowledge/index.md` first, then open only the relevant knowledge files.
-- New material in `wiki/inbox/` by itself does **not** justify creating or updating issues, branches, or pull requests.
+- Read `.git-tasks/wiki/knowledge/index.md` first, then open only the relevant knowledge files.
+- New material in `.git-tasks/wiki/inbox/` by itself does **not** justify creating or updating issues, branches, or pull requests.
 - New or updated knowledge that changes the plan **may** justify epic/sprint/story create or update operations.
 - Use `overview` for context and `list --short` for low-token discovery.
 - Use `show --comments` only when comments matter.
