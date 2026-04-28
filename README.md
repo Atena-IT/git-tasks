@@ -79,7 +79,7 @@ Labels created automatically: `epic`, `sprint`, `user-story`
 
 ### Epics
 ```bash
-git-tasks epic create "Title" -d <desc> -p <points> --start <date> --end <date> [-k <wiki/knowledge/file.md>] [-a <user>]
+git-tasks epic create "Title" -d <desc> -p <points> --start <date> --end <date> [-k <.git-tasks/wiki/knowledge/file.md>] [-a <user>]
 git-tasks epic list [--state open|closed|all] [--short]
 git-tasks epic show <number> [--comments]
 git-tasks epic update <number> [--title <text>] [--points <n>] [--status open|closed]
@@ -87,7 +87,7 @@ git-tasks epic update <number> [--title <text>] [--points <n>] [--status open|cl
 
 ### Sprints
 ```bash
-git-tasks sprint create "Title" -e <epic> -d <desc> -p <points> --start <date> --end <date> [-k <wiki/knowledge/file.md>] [-a <user>]
+git-tasks sprint create "Title" -e <epic> -d <desc> -p <points> --start <date> --end <date> [-k <.git-tasks/wiki/knowledge/file.md>] [-a <user>]
 git-tasks sprint list [--epic <n>] [--state open|closed|all] [--short]
 git-tasks sprint show <number> [--comments]
 git-tasks sprint update <number> [--title <text>] [--status open|closed]
@@ -95,7 +95,7 @@ git-tasks sprint update <number> [--title <text>] [--status open|closed]
 
 ### User Stories
 ```bash
-git-tasks story create "Title" -s <sprint> -e <epic> -d <desc> -p <points> --priority low|medium|high [-k <wiki/knowledge/file.md>] [-a <user>]
+git-tasks story create "Title" -s <sprint> -e <epic> -d <desc> -p <points> --priority low|medium|high [-k <.git-tasks/wiki/knowledge/file.md>] [-a <user>]
 git-tasks story list [--sprint <n>] [--epic <n>] [--assignee <user>] [--state open|closed|all] [--short]
 git-tasks story show <number> [--comments]
 git-tasks story update <number> [--status open|in-progress|ready-for-review|closed] [--reviewer <user>]
@@ -115,6 +115,8 @@ git-tasks wiki show inbox/<file>
 git-tasks wiki show knowledge/index
 ```
 
+`git-tasks init` creates a dedicated `.git-tasks/` workspace in the repository, including `.git-tasks/config.json` and `.git-tasks/wiki/`.
+
 ## Agent-friendly usage
 
 ```bash
@@ -122,7 +124,7 @@ git-tasks init --owner octocat --reviewer octocat
 git-tasks overview --depth 2
 git-tasks epic list --short
 git-tasks story list --short --sprint 5
-git-tasks story update 42 --status in-progress --knowledge wiki/knowledge/auth-plan.md
+git-tasks story update 42 --status in-progress --knowledge .git-tasks/wiki/knowledge/auth-plan.md
 git-tasks story update 42 --status ready-for-review --reviewer octocat
 ```
 
@@ -137,18 +139,18 @@ git-tasks story update 42 --status ready-for-review --reviewer octocat
 ## Wiki-first knowledge workflow
 
 - Initialize the repository once with `git-tasks init`.
-- Put inbound human or system inputs in `wiki/inbox/` exactly as they arrive: meeting notes, pasted chats, TODO dumps, transcripts, uploads, or scratch notes.
-- Read `wiki/knowledge/index.md` before opening individual knowledge files so you reuse existing context instead of creating duplicate nodes.
-- Keep `wiki/knowledge/` flat. The semantic kind belongs in frontmatter `type`, not in subdirectories.
+- Put inbound human or system inputs in `.git-tasks/wiki/inbox/` exactly as they arrive: meeting notes, pasted chats, TODO dumps, transcripts, uploads, or scratch notes.
+- Read `.git-tasks/wiki/knowledge/index.md` before opening individual knowledge files so you reuse existing context instead of creating duplicate nodes.
+- Keep `.git-tasks/wiki/knowledge/` flat. The semantic kind belongs in frontmatter `type`, not in subdirectories.
 - Use dash-case frontmatter keys for knowledge nodes. A practical minimum is `id`, `type`, `title`, `timestamp`, `status`, `tags`, `sources`, `issue-refs`, `neighbours`, and `supersedes`.
 - Knowledge node bodies should capture the context/source, interpretation, planning changes, rationale, and consequences.
 - Update or create knowledge nodes only when durable understanding changes. Then update epics, sprints, and stories from that compiled knowledge when the plan actually changed.
-- When backlog items are tied to specific knowledge docs, store repo-relative `wiki/knowledge/...` paths in issue `Knowledge Links` metadata.
-- Legacy `wiki/raw/` and `wiki/processed/` content may still be read for historical context, but new writes should target `wiki/inbox/` and `wiki/knowledge/`.
+- When backlog items are tied to specific knowledge docs, store repo-relative `.git-tasks/wiki/knowledge/...` paths in issue `Knowledge Links` metadata.
+- Legacy `wiki/raw/` and `wiki/processed/` content may still be read for historical context, but new writes should target `.git-tasks/wiki/inbox/` and `.git-tasks/wiki/knowledge/`.
 
 ## Configuration
 
-Run `git-tasks init --owner <user> --reviewer <user>` to create `.git-tasks/config.json` at the repository root. Commit this file so human teammates and AI agents share the same defaults.
+Run `git-tasks init --owner <user> --reviewer <user>` to create the `.git-tasks/` workspace at the repository root, including `.git-tasks/config.json` and `.git-tasks/wiki/`. Commit this config so human teammates and AI agents share the same defaults.
 
 ```json
 {
@@ -168,8 +170,8 @@ Run `git-tasks init --owner <user> --reviewer <user>` to create `.git-tasks/conf
 
 ## Task lifecycle automation
 
-- New material in `wiki/inbox/` by itself does **not** create or update issues, branches, or pull requests.
-- New or updated knowledge in `wiki/knowledge/` may lead to epic, sprint, or story create/update operations when the planning delta is real.
+- New material in `.git-tasks/wiki/inbox/` by itself does **not** create or update issues, branches, or pull requests.
+- New or updated knowledge in `.git-tasks/wiki/knowledge/` may lead to epic, sprint, or story create/update operations when the planning delta is real.
 - `story update --status in-progress` keeps the story open, updates its workflow status, and ensures a draft PR exists for the current branch.
 - Agents should pick up stories in an isolated worktree with a named branch and attached draft PR so execution stays reviewable and self-contained.
 - Routine execution should not create new knowledge nodes unless durable understanding or planning changed.

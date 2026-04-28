@@ -8,7 +8,7 @@ tags:
   - auth
   - planning
 sources:
-  - wiki/inbox/meeting-notes.md
+  - .git-tasks/wiki/inbox/meeting-notes.md
 issue-refs:
   - "#12"
   - "#27"

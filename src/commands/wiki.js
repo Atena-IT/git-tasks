@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { existsSync, readdirSync, readFileSync, mkdirSync, realpathSync, writeFileSync } from 'fs';
 import { dirname, join, relative, resolve, isAbsolute } from 'path';
 import { printError } from '../utils/format.js';
-import { resolveRepositoryRoot } from '../utils/config.js';
+import { getGitTasksRoot } from '../utils/config.js';
 import chalk from 'chalk';
 
 const WIKI_DIR = 'wiki';
@@ -15,10 +15,10 @@ This wiki contains project knowledge managed by git-tasks.
 
 ## Structure
 
-- \`wiki/inbox/\` is for direct human or system inputs such as meeting notes, transcripts, pasted chats, and scratch notes.
-- \`wiki/knowledge/\` is for structured knowledge nodes whose semantic type lives in frontmatter.
-- \`wiki/knowledge/index.md\` is the append-only encyclopedia index that AI agents should scan first before opening individual knowledge files.
-- Keep legacy \`wiki/raw/\` and \`wiki/processed/\` folders readable if they already exist, but write new material into \`wiki/inbox/\` and \`wiki/knowledge/\`.
+- \`.git-tasks/wiki/inbox/\` is for direct human or system inputs such as meeting notes, transcripts, pasted chats, and scratch notes.
+- \`.git-tasks/wiki/knowledge/\` is for structured knowledge nodes whose semantic type lives in frontmatter.
+- \`.git-tasks/wiki/knowledge/index.md\` is the append-only encyclopedia index that AI agents should scan first before opening individual knowledge files.
+- Keep legacy \`wiki/raw/\` and \`wiki/processed/\` folders readable if they already exist, but write new material into \`.git-tasks/wiki/inbox/\` and \`.git-tasks/wiki/knowledge/\`.
 - Use \`git-tasks wiki list\` to list files recursively.
 - Use \`git-tasks wiki show <filename>\` to view a file, including nested paths such as \`inbox/discovery.md\` or \`knowledge/index.md\`.
 `;
@@ -29,7 +29,7 @@ Use this space for unmodified incoming material from humans or external systems.
 
 - Drop notes exactly as they arrive.
 - Preserve original wording when possible.
-- Inbox entries alone should not trigger issue, branch, or pull-request changes until the knowledge has been compiled into \`wiki/knowledge/\`.
+- Inbox entries alone should not trigger issue, branch, or pull-request changes until the knowledge has been compiled into \`.git-tasks/wiki/knowledge/\`.
 `;
 
 const KNOWLEDGE_WIKI_README = `# Knowledge
@@ -40,7 +40,7 @@ Use this space for durable knowledge nodes managed by AI and humans.
 - Use dash-case frontmatter keys such as \`timestamp\`, \`issue-refs\`, and \`neighbours\`.
 - Update or create knowledge nodes when durable understanding changes.
 - Update \`index.md\` whenever knowledge changes so agents can navigate the wiki efficiently.
-- Legacy \`processed/\` content may still be read, but new durable knowledge belongs here.
+- Legacy \`processed/\` content may still be read, but new durable knowledge belongs in \`.git-tasks/wiki/knowledge/\`.
 `;
 
 const KNOWLEDGE_INDEX = `# Knowledge Index
@@ -68,8 +68,7 @@ function listMarkdownFiles(dir, prefix = '') {
 }
 
 function getWikiRoot(rootDir = process.cwd()) {
-  const repoRoot = resolveRepositoryRoot(rootDir) || resolve(rootDir);
-  return resolve(repoRoot, WIKI_DIR);
+  return resolve(getGitTasksRoot(rootDir), WIKI_DIR);
 }
 
 export function initializeWiki(rootDir = process.cwd()) {
@@ -104,13 +103,13 @@ function resolveWikiFilePath(filename, rootDir = process.cwd()) {
   const requested = filename.endsWith('.md') ? filename : `${filename}.md`;
   const filePath = resolve(wikiRoot, requested);
   if (!isWikiPathWithinRoot(wikiRoot, filePath)) {
-    throw new Error('Wiki paths must stay inside the wiki/ directory.');
+    throw new Error('Wiki paths must stay inside the .git-tasks/wiki/ directory.');
   }
   if (existsSync(wikiRoot) && existsSync(filePath)) {
     const realWikiRoot = realpathSync(wikiRoot);
     const realFilePath = realpathSync(filePath);
     if (!isWikiPathWithinRoot(realWikiRoot, realFilePath)) {
-      throw new Error('Wiki paths must stay inside the wiki/ directory.');
+      throw new Error('Wiki paths must stay inside the .git-tasks/wiki/ directory.');
     }
     return realFilePath;
   }
@@ -118,7 +117,7 @@ function resolveWikiFilePath(filename, rootDir = process.cwd()) {
 }
 
 export function makeWikiCommand() {
-  const wiki = new Command('wiki').description('Manage local wiki files for inbox inputs and structured knowledge');
+  const wiki = new Command('wiki').description('Manage local .git-tasks/wiki files for inbox inputs and structured knowledge');
 
   wiki
     .command('list')

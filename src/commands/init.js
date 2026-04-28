@@ -21,7 +21,7 @@ function isGitRepositoryRoot(rootDir = process.cwd()) {
 
 export function makeInitCommand() {
   return new Command('init')
-    .description('Initialize git-tasks in the current git repository')
+    .description('Initialize the .git-tasks workspace in the current git repository')
     .option('--owner <user>', 'Repository owner or default reviewer username')
     .option('-r, --reviewer <user>', 'Default reviewer username', collectValues, [])
     .action((opts) => {
